@@ -1,0 +1,391 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  name                 String
+  email                String                @unique
+  passwordHash         String?
+  emailVerifiedAt      DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  babies               Baby[]
+  questions            ParentQuestion[]
+  consultationRequests ConsultationRequest[]
+  maternalProfile      MaternalProfile?
+  familyMemberships    FamilyMembership[]
+  emailTokens          AccountEmailToken[]
+  privacyConsents      PrivacyConsent[]
+}
+
+model Family {
+  id          String             @id @default(cuid())
+  name        String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  memberships FamilyMembership[]
+  invitations FamilyInvitation[]
+  babies      Baby[]
+}
+
+model FamilyMembership {
+  id        String   @id @default(cuid())
+  familyId  String
+  userId    String
+  role      String   @default("parent")
+  status    String   @default("active")
+  joinedAt  DateTime @default(now())
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@index([userId, status])
+}
+
+model FamilyInvitation {
+  id              String    @id @default(cuid())
+  familyId        String
+  email           String
+  role            String    @default("parent")
+  tokenHash       String    @unique
+  invitedByUserId String
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  family          Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([email, expiresAt])
+  @@index([familyId])
+}
+
+model AccountEmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, expiresAt])
+}
+
+model PrivacyConsent {
+  id            String   @id @default(cuid())
+  userId        String
+  policyVersion String
+  acceptedAt    DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, policyVersion])
+}
+
+model MaternalProfile {
+  id                  String               @id @default(cuid())
+  userId              String               @unique
+  trackingMode        String               @default("menstrual")
+  lastPeriodStartDate DateTime?
+  averageCycleLength  Int?
+  averagePeriodDays   Int?
+  estimatedDueDate    DateTime?
+  multiplesCount      Int                  @default(1)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menstrualLogs       MenstrualDailyLog[]
+  pregnancyLogs       PregnancyDailyLog[]
+  healthMeasurements  HealthMeasurement[]
+  hormoneMeasurements HormoneMeasurement[]
+}
+
+model MenstrualDailyLog {
+  id               String          @id @default(cuid())
+  maternalProfileId String
+  date             DateTime
+  bleedingIntensity String?
+  basalTemperature Float?
+  temperatureUnit  String?
+  cervicalMucus    String?
+  lhTestResult     String?
+  lhPhotoReference String?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  maternalProfile  MaternalProfile @relation(fields: [maternalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([maternalProfileId, date])
+  @@index([maternalProfileId, date])
+}
+
+model PregnancyDailyLog {
+  id                String          @id @default(cuid())
+  maternalProfileId String
+  date              DateTime
+  nauseaVomiting    String?
+  fatigue           String?
+  brainFog          String?
+  mood              String?
+  anxiety           String?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  maternalProfile   MaternalProfile @relation(fields: [maternalProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([maternalProfileId, date])
+  @@index([maternalProfileId, date])
+}
+
+model HealthMeasurement {
+  id                String          @id @default(cuid())
+  maternalProfileId String
+  type              String
+  value             Float?
+  unit              String?
+  systolic          Int?
+  diastolic         Int?
+  context           String?
+  measuredAt        DateTime
+  notes             String?
+  createdAt         DateTime        @default(now())
+  maternalProfile   MaternalProfile @relation(fields: [maternalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([maternalProfileId, type, measuredAt])
+}
+
+model HormoneMeasurement {
+  id                String          @id @default(cuid())
+  maternalProfileId String
+  hormone           String
+  value             Float
+  unit              String
+  measuredAt        DateTime
+  source            String?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  maternalProfile   MaternalProfile @relation(fields: [maternalProfileId], references: [id], onDelete: Cascade)
+
+  @@index([maternalProfileId, hormone, measuredAt])
+}
+
+model Baby {
+  id            String           @id @default(cuid())
+  userId        String
+  familyId      String?
+  name          String
+  birthDate     DateTime
+  sexAtBirth    String?
+  initialWeight Float?
+  weightUnit    String?
+  initialHeight Float?
+  heightUnit    String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family        Family?          @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  sleepSessions SleepSession[]
+  feedings      FeedingSession[]
+  diaperChanges DiaperChange[]
+  questions     ParentQuestion[]
+  heightMeasurements BabyHeightMeasurement[]
+  milestones          DevelopmentalMilestone[]
+  healthObservations  BabyHealthObservation[]
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model DevelopmentalMilestone {
+  id         String   @id @default(cuid())
+  babyId     String
+  type       String
+  title      String
+  achievedAt DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+  baby       Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, achievedAt])
+}
+
+model BabyHealthObservation {
+  id         String   @id @default(cuid())
+  babyId     String
+  type       String
+  value      Float?
+  unit       String?
+  severity   String?
+  notes      String?
+  observedAt DateTime
+  createdAt  DateTime @default(now())
+  baby       Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, type, observedAt])
+}
+
+model BabyHeightMeasurement {
+  id         String   @id @default(cuid())
+  babyId     String
+  height     Float
+  unit       String
+  measuredAt DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+  baby       Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, measuredAt])
+}
+
+model SleepSession {
+  id              String   @id @default(cuid())
+  babyId          String
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+  baby            Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, startTime])
+  @@index([babyId, endTime])
+}
+
+model FeedingSession {
+  id          String   @id @default(cuid())
+  babyId      String
+  feedingType String
+  feedingMethod String?
+  milkType    String?
+  amount      Float?
+  unit        String?
+  foodName    String?
+  foodDescription String?
+  startTime   DateTime
+  endTime     DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  baby        Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, startTime])
+}
+
+model DiaperChange {
+  id        String   @id @default(cuid())
+  babyId    String
+  type      String
+  timestamp DateTime
+  notes     String?
+  baby      Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, timestamp])
+}
+
+model Expert {
+  id                   String                @id @default(cuid())
+  name                 String
+  organization         String?
+  specialty            String
+  serviceCategory      String                @default("general")
+  audience             String                @default("family")
+  credentials          String
+  verificationStatus   String
+  affiliationStatus    String                @default("external_unpartnered")
+  description          String
+  profileImage         String?
+  contactMethod        String?
+  phone                String?
+  email                String?
+  website              String?
+  sourceUrl            String?
+  availabilityStatus   String
+  isDemo               Boolean               @default(true)
+  consultationRequests ConsultationRequest[]
+
+  @@index([specialty])
+  @@index([serviceCategory])
+  @@index([audience])
+}
+
+model ParentQuestion {
+  id                   String                @id @default(cuid())
+  userId               String
+  babyId               String?
+  question             String
+  category             String
+  status               String                @default("submitted")
+  createdAt            DateTime              @default(now())
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baby                 Baby?                 @relation(fields: [babyId], references: [id], onDelete: SetNull)
+  consultationRequests ConsultationRequest[]
+
+  @@index([userId, createdAt])
+  @@index([babyId])
+}
+
+model ConsultationRequest {
+  id         String          @id @default(cuid())
+  userId     String
+  expertId   String
+  questionId String?
+  message    String
+  status     String          @default("pending")
+  createdAt  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expert     Expert          @relation(fields: [expertId], references: [id], onDelete: Restrict)
+  question   ParentQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([expertId])
+}
+
+model EducationalResource {
+  id          String    @id @default(cuid())
+  title       String
+  category    String
+  description String
+  sourceName  String
+  sourceUrl   String
+  reviewedAt  DateTime?
+
+  @@index([category])
+}
+
+model NutritionProduct {
+  id                 String @id @default(cuid())
+  name               String
+  brand              String
+  category           String
+  description        String
+  ingredients        String
+  ageGuidance        String
+  sourceUrl          String
+  expertReviewStatus String @default("not_reviewed")
+  isSample           Boolean @default(true)
+
+  @@index([category])
+  @@index([brand])
+  @@index([name])
+}
+
+model BabyProduct {
+  id                 String  @id @default(cuid())
+  name               String
+  brand              String
+  category           String
+  description        String
+  sourceUrl          String
+  expertReviewStatus String  @default("not_reviewed")
+  reviewNotes        String?
+  isSample           Boolean @default(true)
+
+  @@index([category])
+  @@index([brand])
+}
