@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { activeFamilyMembership, ownedBaby } from "../auth";
+import { activeFamilyMembership, ownedBaby, requireBabyRole } from "../auth";
 import { prisma } from "../db";
 import { AppError, ok, validate } from "../http";
 import { babyParams } from "../schemas";
@@ -19,8 +19,8 @@ babiesRouter.get("/babies/:babyId", validate(babyParams), async (req, res, next)
   try { ok(res, await ownedBaby(req.authUserId!, req.params.babyId)); } catch (e) { next(e); }
 });
 babiesRouter.patch("/babies/:babyId", validate(z.object({ params: babyParams.shape.params, body: babyBodyBase.partial().refine((v) => Object.keys(v).length > 0) })), async (req, res, next) => {
-  try { await ownedBaby(req.authUserId!, req.params.babyId); if (req.body.familyId) await activeFamilyMembership(req.authUserId!, req.body.familyId); ok(res, await prisma.baby.update({ where: { id: req.params.babyId }, data: req.body }), "Baby profile updated"); } catch (e) { next(e); }
+  try { await requireBabyRole(req.authUserId!, req.params.babyId, ["owner", "parent"]); if (req.body.familyId) { const target = await activeFamilyMembership(req.authUserId!, req.body.familyId); if (!["owner", "parent"].includes(target.role)) throw new AppError(403, "BABY_ROLE_REQUIRED", "Only an owner or parent can move a baby profile"); } ok(res, await prisma.baby.update({ where: { id: req.params.babyId }, data: req.body }), "Baby profile updated"); } catch (e) { next(e); }
 });
 babiesRouter.delete("/babies/:babyId", validate(babyParams), async (req, res, next) => {
-  try { await ownedBaby(req.authUserId!, req.params.babyId); await prisma.baby.delete({ where: { id: req.params.babyId } }); ok(res, { id: req.params.babyId }, "Baby profile deleted"); } catch (e) { next(e); }
+  try { await requireBabyRole(req.authUserId!, req.params.babyId, ["owner"]); await prisma.baby.delete({ where: { id: req.params.babyId } }); ok(res, { id: req.params.babyId }, "Baby profile deleted"); } catch (e) { next(e); }
 });

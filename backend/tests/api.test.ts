@@ -1,6 +1,7 @@
 import request from "supertest";
+import express from "express";
 import { afterAll, describe, expect, it } from "vitest";
-import { app } from "../src/app";
+import { app, createRateLimiter } from "../src/app";
 import { prisma } from "../src/db";
 
 let token = ""; let babyId = ""; let questionId = ""; let otherToken = ""; let familyId = ""; let otherMembershipId = "";
@@ -133,6 +134,97 @@ describe("Nurture API", () => {
     expect(reset.status).toBe(200);
     const login = await request(app).post("/api/auth/login").send({ email: "other@example.test", password: "new-safe-password" });
     expect(login.status).toBe(200);
+    const reused = await request(app).post("/api/auth/reset-password").send({ token: forgot.body.data.developmentToken, password: "another-password" });
+    expect(reused.status).toBe(400); expect(reused.body.error.code).toBe("INVALID_TOKEN");
+  });
+
+  it("rejects expired verification and invitation tokens", async () => {
+    const registration = await request(app).post("/api/auth/register").send({ name: "Expired Token", email: "expired@example.test", password: "expired-password" });
+    const tokenHash = (await prisma.accountEmailToken.findFirstOrThrow({ where: { user: { email: "expired@example.test" }, type: "verify_email" } })).tokenHash;
+    await prisma.accountEmailToken.update({ where: { tokenHash }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    const verification = await request(app).post("/api/auth/verify-email").send({ token: registration.body.data.developmentToken });
+    expect(verification.status).toBe(400); expect(verification.body.error.code).toBe("INVALID_TOKEN");
+
+    const inviteeToken = await registerAndVerify("Expired Invitee", "expired-invite@example.test");
+    const invitation = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "expired-invite@example.test", role: "parent" });
+    await prisma.familyInvitation.update({ where: { id: invitation.body.data.invitation.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    const accepted = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${inviteeToken}` }).send({ token: invitation.body.data.developmentToken });
+    expect(accepted.status).toBe(400); expect(accepted.body.error.code).toBe("INVALID_INVITATION");
+  });
+
+  it("prevents duplicate, mismatched, reused, and revoked family invitations", async () => {
+    const invitedToken = await registerAndVerify("Invite Rules", "invite-rules@example.test");
+    const first = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "invite-rules@example.test", role: "parent" });
+    expect(first.status).toBe(201);
+    const duplicate = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "invite-rules@example.test", role: "parent" });
+    expect(duplicate.status).toBe(409); expect(duplicate.body.error.code).toBe("INVITATION_PENDING");
+    const mismatch = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${otherToken}` }).send({ token: first.body.data.developmentToken });
+    expect(mismatch.status).toBe(403); expect(mismatch.body.error.code).toBe("INVITATION_EMAIL_MISMATCH");
+    const accepted = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${invitedToken}` }).send({ token: first.body.data.developmentToken });
+    expect(accepted.status).toBe(200);
+    const reused = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${invitedToken}` }).send({ token: first.body.data.developmentToken });
+    expect(reused.status).toBe(400); expect(reused.body.error.code).toBe("INVALID_INVITATION");
+
+    const revokedUserToken = await registerAndVerify("Revoked Invite", "revoked@example.test");
+    const revocable = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "revoked@example.test", role: "caregiver" });
+    const revoked = await request(app).delete(`/api/families/${familyId}/invitations/${revocable.body.data.invitation.id}`).set(auth());
+    expect(revoked.status).toBe(200);
+    const revokedAccept = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${revokedUserToken}` }).send({ token: revocable.body.data.developmentToken });
+    expect(revokedAccept.status).toBe(400); expect(revokedAccept.body.error.code).toBe("INVALID_INVITATION");
+  });
+
+  it("enforces caregiver permissions while allowing shared care tracking", async () => {
+    const caregiverToken = await registerAndVerify("Care Giver", "caregiver@example.test");
+    const invite = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "caregiver@example.test", role: "caregiver" });
+    await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${caregiverToken}` }).send({ token: invite.body.data.developmentToken });
+    const caregiverAuth = { Authorization: `Bearer ${caregiverToken}` };
+    const diaper = await request(app).post(`/api/babies/${babyId}/diapers`).set(caregiverAuth).send({ type: "wet", notes: "Shared care entry" });
+    expect(diaper.status).toBe(201);
+    const edited = await request(app).patch(`/api/diapers/${diaper.body.data.id}`).set(caregiverAuth).send({ notes: "Updated shared care entry" });
+    expect(edited.status).toBe(200);
+    const rename = await request(app).patch(`/api/families/${familyId}`).set(caregiverAuth).send({ name: "Not allowed" });
+    expect(rename.status).toBe(403); expect(rename.body.error.code).toBe("OWNER_REQUIRED");
+    const inviteAttempt = await request(app).post(`/api/families/${familyId}/invitations`).set(caregiverAuth).send({ email: "nope@example.test", role: "parent" });
+    expect(inviteAttempt.status).toBe(403); expect(inviteAttempt.body.error.code).toBe("INVITE_FORBIDDEN");
+    const updateBaby = await request(app).patch(`/api/babies/${babyId}`).set(caregiverAuth).send({ name: "Not allowed" });
+    expect(updateBaby.status).toBe(403); expect(updateBaby.body.error.code).toBe("BABY_ROLE_REQUIRED");
+    const deleteBaby = await request(app).delete(`/api/babies/${babyId}`).set(caregiverAuth);
+    expect(deleteBaby.status).toBe(403); expect(deleteBaby.body.error.code).toBe("BABY_ROLE_REQUIRED");
+  });
+
+  it("preserves shared baby records when an owner deletes their account", async () => {
+    const ownerToken = await registerAndVerify("Deleting Owner", "deleting-owner@example.test", "owner-password");
+    const coParentToken = await registerAndVerify("Remaining Parent", "remaining-parent@example.test");
+    const ownerAuth = { Authorization: `Bearer ${ownerToken}` };
+    const ownerFamilies = await request(app).get("/api/families").set(ownerAuth);
+    const sharedFamilyId = ownerFamilies.body.data[0].family.id;
+    const sharedBaby = await request(app).post("/api/babies").set(ownerAuth).send({ name: "Preserved Baby", birthDate: "2026-02-01", familyId: sharedFamilyId });
+    const invitation = await request(app).post(`/api/families/${sharedFamilyId}/invitations`).set(ownerAuth).send({ email: "remaining-parent@example.test", role: "parent" });
+    await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${coParentToken}` }).send({ token: invitation.body.data.developmentToken });
+    const deleted = await request(app).delete("/api/settings/account").set(ownerAuth).send({ password: "owner-password", confirmation: "DELETE MY ACCOUNT" });
+    expect(deleted.status).toBe(200);
+    const preserved = await request(app).get(`/api/babies/${sharedBaby.body.data.id}`).set({ Authorization: `Bearer ${coParentToken}` });
+    expect(preserved.status).toBe(200); expect(preserved.body.data.name).toBe("Preserved Baby");
+    const promoted = await prisma.familyMembership.findFirstOrThrow({ where: { familyId: sharedFamilyId, status: "active" } });
+    expect(promoted.role).toBe("owner");
+  });
+
+  it("allows only one active sleep session during concurrent starts", async () => {
+    const now = new Date(Date.now() - 60_000).toISOString();
+    const responses = await Promise.all([
+      request(app).post(`/api/babies/${babyId}/sleep/start`).set(auth()).send({ startTime: now }),
+      request(app).post(`/api/babies/${babyId}/sleep/start`).set(auth()).send({ startTime: now }),
+    ]);
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+    expect(await prisma.sleepSession.count({ where: { babyId, endTime: null } })).toBe(1);
+    await request(app).post(`/api/babies/${babyId}/sleep/stop`).set(auth()).send({});
+  });
+
+  it("returns safe errors for malformed and oversized JSON", async () => {
+    const malformed = await request(app).post("/api/auth/login").set("Content-Type", "application/json").send('{"email":');
+    expect(malformed.status).toBe(400); expect(malformed.body.error.code).toBe("INVALID_JSON");
+    const oversized = await request(app).post("/api/auth/login").set("Content-Type", "application/json").send(JSON.stringify({ email: "large@example.test", password: "x".repeat(110_000) }));
+    expect(oversized.status).toBe(413); expect(oversized.body.error.code).toBe("REQUEST_TOO_LARGE");
   });
 
   it("calibrates menstrual tracking and saves a daily log", async () => {
@@ -173,6 +265,15 @@ describe("Nurture API", () => {
     expect(deleted.status).toBe(200); expect(deleted.body.data.accountDeleted).toBe(true);
     const denied = await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${deleteToken}` });
     expect(denied.status).toBe(401);
+  });
+
+  it("rate limits repeated authentication attempts", async () => {
+    const limitedApp = express();
+    limitedApp.use(createRateLimiter(2));
+    limitedApp.get("/", (_req, res) => res.status(200).send("ok"));
+    expect((await request(limitedApp).get("/")).status).toBe(200);
+    expect((await request(limitedApp).get("/")).status).toBe(200);
+    expect((await request(limitedApp).get("/")).status).toBe(429);
   });
 });
 

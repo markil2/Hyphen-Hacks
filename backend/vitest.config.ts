@@ -12,6 +12,7 @@ export default defineConfig({
       FRONTEND_ORIGIN: "http://localhost:5173",
       DEMO_MODE: "false",
       RATE_LIMIT_MAX: "1000",
+      AUTH_RATE_LIMIT_MAX: "1000",
       EMAIL_PROVIDER: "console",
       APP_BASE_URL: "http://localhost:5173",
       PRIVACY_POLICY_VERSION: "2026-10-10"

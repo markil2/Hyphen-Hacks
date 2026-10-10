@@ -35,6 +35,14 @@ export const errorHandler = (error: unknown, _req: Request, res: Response, _next
   if (error instanceof AppError) {
     return res.status(error.status).json({ success: false, error: { code: error.code, message: error.message } });
   }
+  if (typeof error === "object" && error !== null && "type" in error) {
+    if (error.type === "entity.too.large") {
+      return res.status(413).json({ success: false, error: { code: "REQUEST_TOO_LARGE", message: "Request body exceeds the 100kb limit" } });
+    }
+    if (error.type === "entity.parse.failed") {
+      return res.status(400).json({ success: false, error: { code: "INVALID_JSON", message: "Request body contains invalid JSON" } });
+    }
+  }
   if (process.env.NODE_ENV !== "test") console.error("Unhandled backend error", error);
   return res.status(500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Unexpected server error" } });
 };

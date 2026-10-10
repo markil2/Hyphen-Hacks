@@ -20,13 +20,14 @@ import { settingsRouter } from "./routes/settings";
 import { babyTrackingRouter } from "./routes/babyTracking";
 
 export const app = express();
+export const createRateLimiter = (limit: number) => rateLimit({ windowMs: config.RATE_LIMIT_WINDOW_MS, limit, standardHeaders: "draft-7", legacyHeaders: false });
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({ origin: config.FRONTEND_ORIGIN, credentials: false }));
 app.use(express.json({ limit: "100kb" }));
-app.use("/api/auth", rateLimit({ windowMs: config.RATE_LIMIT_WINDOW_MS, limit: 20, standardHeaders: "draft-7", legacyHeaders: false }), authRouter);
+app.use("/api/auth", createRateLimiter(config.AUTH_RATE_LIMIT_MAX), authRouter);
 app.get("/api/health", (_req, res) => ok(res, { status: "ok", demoMode: config.DEMO_MODE }));
-app.use("/api", rateLimit({ windowMs: config.RATE_LIMIT_WINDOW_MS, limit: config.RATE_LIMIT_MAX, standardHeaders: "draft-7", legacyHeaders: false }));
+app.use("/api", createRateLimiter(config.RATE_LIMIT_MAX));
 app.use("/api", authenticate, babiesRouter, sleepRouter, feedingsRouter, diapersRouter, dashboardRouter, supportRouter, catalogRouter, maternalRouter, growthRouter, familiesRouter, settingsRouter, babyTrackingRouter);
 app.use(notFound);
 app.use(errorHandler);

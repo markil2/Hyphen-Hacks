@@ -52,7 +52,7 @@ Registration creates a separate user account and a default family household, the
 | PATCH | `/families/:familyId/members/:membershipId` | `{ role }` | change role; owner only |
 | DELETE | `/families/:familyId/members/:membershipId` | none | leave or revoke member access |
 
-Roles are `owner`, `parent`, and `caregiver`. Invitations are bound to the invited email and expire after seven days. Every adult uses a separate login. An active member may access babies assigned to that family; maternal records remain private to their individual account. The last owner cannot leave until ownership is transferred. Removing a parent revokes future shared-family access but preserves the baby's records for remaining members.
+Roles are `owner`, `parent`, and `caregiver`. Owners manage roles, revoke invitations, remove other members, and delete baby profiles. Parents may update baby profiles, invite parents/caregivers, and record care. Caregivers may view shared babies and record or update care events, but cannot manage the family or baby profile. Invitations are bound to the invited email, expire after seven days, are single-use, and cannot be duplicated while an active invitation is pending. Every adult uses a separate login. Maternal records remain private to their individual account. The last owner cannot leave until ownership is transferred. Removing a parent revokes future shared-family access but preserves the baby's records for remaining members.
 
 ## Account settings and privacy
 
@@ -92,6 +92,8 @@ Exports omit password hashes and credentials. Account deletion removes private m
 | GET | `/babies/:babyId/sleep/active` | none | active session or `null` |
 | PATCH | `/sleep/:sessionId` | any of `{ startTime, endTime, notes }`; `endTime` may be `null` | updated session |
 | DELETE | `/sleep/:sessionId` | none | deleted ID |
+
+Only one active sleep session may exist per baby. This rule is enforced by the database as well as the API, so concurrent start requests produce one success and one `409 SLEEP_ALREADY_ACTIVE` response.
 
 ```json
 POST /babies/baby_id/sleep/start

@@ -9,3 +9,4 @@ execFileSync("sqlite3", [database, `.read '${resolve(process.cwd(), "prisma/migr
 execFileSync("sqlite3", [database, `.read '${resolve(process.cwd(), "prisma/migrations/20261010230000_expert_directory/migration.sql")}'`]);
 execFileSync("sqlite3", [database, `.read '${resolve(process.cwd(), "prisma/migrations/20261011000000_baby_height_tracking/migration.sql")}'`]);
 execFileSync("sqlite3", [database, `.read '${resolve(process.cwd(), "prisma/migrations/20261011020000_accounts_families_tracking/migration.sql")}'`]);
+execFileSync("sqlite3", [database, `.read '${resolve(process.cwd(), "prisma/migrations/20261011030000_active_sleep_constraint/migration.sql")}'`]);

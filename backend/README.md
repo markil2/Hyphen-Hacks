@@ -43,7 +43,7 @@ npm run db:seed
 - `FRONTEND_ORIGIN`: the one allowed CORS origin, normally `http://localhost:5173`
 - `DEMO_MODE`: when `true`, requests without a bearer token use the seeded fictional demo parent
 - `DEMO_EMAIL`: seeded demo account lookup, default `demo@nurture.local`
-- `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX`: API rate-limit settings
+- `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, and `AUTH_RATE_LIMIT_MAX`: API and stricter authentication rate-limit settings
 - `EMAIL_PROVIDER`: `console` for local development or `resend` for real delivery
 - `RESEND_API_KEY`: server-only Resend credential; required when `EMAIL_PROVIDER=resend`
 - `EMAIL_FROM`: verified Resend sender, for example `Nurture <accounts@yourdomain.com>`
@@ -79,7 +79,9 @@ Set the frontend API base URL to `http://localhost:8000`. Responses always use `
 - Registration requires email verification. Password reset, changed-email verification, and family invitations use hashed, single-use, expiring tokens.
 - Account export, versioned privacy consent, password changes, family membership controls, and account deletion/anonymization are available through authenticated settings routes.
 - Account deletion removes the person's private maternal/support data and access while preserving shared baby history for remaining family members. Legal custody decisions are outside the application's authority.
-- CORS uses one configured origin, request bodies are size-limited, security headers are enabled, and API/auth routes are rate-limited.
+- CORS uses one configured origin, request bodies are limited to 100kb with safe JSON errors, security headers are enabled, and API/auth routes are independently rate-limited.
+- The database enforces one active sleep session per baby, including concurrent requests.
+- Owners manage family roles and destructive baby-profile deletion; parents can manage baby profiles and invite members; caregivers can access shared babies and record care but cannot administer the family or baby profile.
 - Demo mode bypasses login for one seeded fictional user and must remain off in production.
 - Expert profiles and consultation delivery are demonstrations. Requests are stored locally and are not sent to real professionals.
 - The expert directory also contains public external contact listings. `affiliationStatus: external_unpartnered` means Nurture has no partnership or endorsement relationship with that provider. Users contact providers outside Nurture; the backend does not send email or disclose tracked health data.

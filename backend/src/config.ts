@@ -11,6 +11,7 @@ const schema = z.object({
   DEMO_EMAIL: z.string().email().default("demo@nurture.local"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
   EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("Nurture <noreply@example.com>"),

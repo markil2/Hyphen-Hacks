@@ -35,6 +35,17 @@ export async function ownedBaby(userId: string, babyId: string) {
   return baby;
 }
 
+export async function requireBabyRole(userId: string, babyId: string, roles: string[]) {
+  const baby = await ownedBaby(userId, babyId);
+  if (!baby.familyId) {
+    if (baby.userId !== userId) throw new AppError(404, "BABY_NOT_FOUND", "Baby was not found");
+    return baby;
+  }
+  const membership = await prisma.familyMembership.findFirst({ where: { userId, familyId: baby.familyId, status: "active" } });
+  if (!membership || !roles.includes(membership.role)) throw new AppError(403, "BABY_ROLE_REQUIRED", "Your family role cannot perform this action");
+  return baby;
+}
+
 export async function activeFamilyMembership(userId: string, familyId: string) {
   const membership = await prisma.familyMembership.findFirst({ where: { userId, familyId, status: "active" }, include: { family: true } });
   if (!membership) throw new AppError(404, "FAMILY_NOT_FOUND", "Family was not found");

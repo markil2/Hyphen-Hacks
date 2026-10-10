@@ -15,7 +15,12 @@ sleepRouter.post("/babies/:babyId/sleep/start", validate(z.object({ params: baby
     if (await prisma.sleepSession.findFirst({ where: { babyId: req.params.babyId, endTime: null } })) throw new AppError(409, "SLEEP_ALREADY_ACTIVE", "This baby already has an active sleep session");
     const startTime = req.body.startTime ?? new Date();
     if (startTime > new Date()) throw new AppError(400, "INVALID_DATE_RANGE", "startTime cannot be in the future");
-    ok(res, await prisma.sleepSession.create({ data: { babyId: req.params.babyId, startTime, notes: req.body.notes } }), "Sleep session started", 201);
+    try {
+      ok(res, await prisma.sleepSession.create({ data: { babyId: req.params.babyId, startTime, notes: req.body.notes } }), "Sleep session started", 201);
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") throw new AppError(409, "SLEEP_ALREADY_ACTIVE", "This baby already has an active sleep session");
+      throw error;
+    }
   } catch (e) { next(e); }
 });
 
@@ -45,12 +50,13 @@ sleepRouter.get("/babies/:babyId/sleep", validate(z.object({ params: babyParams.
 sleepRouter.patch("/sleep/:id", validate(z.object({ params: idParams.shape.params, body: z.object({ startTime: z.coerce.date().optional(), endTime: z.coerce.date().nullable().optional(), notes }).refine((v) => Object.keys(v).length > 0) })), async (req, res, next) => {
   try {
     const current = await prisma.sleepSession.findUnique({ where: { id: req.params.id }, include: { baby: true } });
-    if (!current || current.baby.userId !== req.authUserId) throw new AppError(404, "SLEEP_NOT_FOUND", "Sleep session was not found");
+    if (!current) throw new AppError(404, "SLEEP_NOT_FOUND", "Sleep session was not found");
+    await ownedBaby(req.authUserId!, current.babyId);
     const startTime = req.body.startTime ?? current.startTime; const endTime = req.body.endTime === undefined ? current.endTime : req.body.endTime; ensureDateRange(startTime, endTime);
     if (endTime === null && await prisma.sleepSession.findFirst({ where: { babyId: current.babyId, endTime: null, NOT: { id: current.id } } })) throw new AppError(409, "SLEEP_ALREADY_ACTIVE", "This baby already has an active sleep session");
     ok(res, await prisma.sleepSession.update({ where: { id: current.id }, data: { ...req.body, durationMinutes: endTime ? duration(startTime, endTime) : null } }), "Sleep session updated");
   } catch (e) { next(e); }
 });
 sleepRouter.delete("/sleep/:id", validate(idParams), async (req, res, next) => {
-  try { const item = await prisma.sleepSession.findUnique({ where: { id: req.params.id }, include: { baby: true } }); if (!item || item.baby.userId !== req.authUserId) throw new AppError(404, "SLEEP_NOT_FOUND", "Sleep session was not found"); await prisma.sleepSession.delete({ where: { id: item.id } }); ok(res, { id: item.id }, "Sleep session deleted"); } catch (e) { next(e); }
+  try { const item = await prisma.sleepSession.findUnique({ where: { id: req.params.id } }); if (!item) throw new AppError(404, "SLEEP_NOT_FOUND", "Sleep session was not found"); await ownedBaby(req.authUserId!, item.babyId); await prisma.sleepSession.delete({ where: { id: item.id } }); ok(res, { id: item.id }, "Sleep session deleted"); } catch (e) { next(e); }
 });
