@@ -54,17 +54,57 @@ export function glowGradient(id: string, color: string, strength = 0.75) {
   );
 }
 
-/** Back wall + floor + baseboard, in one call. */
-export function Shell({ wallId, floorId, baseboard = '#E7D9C3' }: { wallId: string; floorId: string; baseboard?: string }) {
+/**
+ * Soft ambient light shared by every room: the wall falls off toward the
+ * ceiling, the corners settle into shadow, and the wall/floor seam gets a
+ * little occlusion — the way light sits in the reference render.
+ */
+export function ambientDefs(p: string) {
+  return (
+    <>
+      <LinearGradient id={`${p}-ceiling`} x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0" stopColor="#1A100A" stopOpacity="0.34" />
+        <Stop offset="1" stopColor="#1A100A" stopOpacity="0" />
+      </LinearGradient>
+      <LinearGradient id={`${p}-aoWall`} x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0" stopColor="#1A100A" stopOpacity="0" />
+        <Stop offset="1" stopColor="#1A100A" stopOpacity="0.22" />
+      </LinearGradient>
+      <LinearGradient id={`${p}-aoFloor`} x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0" stopColor="#120A05" stopOpacity="0.38" />
+        <Stop offset="1" stopColor="#120A05" stopOpacity="0" />
+      </LinearGradient>
+      <RadialGradient id={`${p}-vignette`} cx="55%" cy="40%" r="75%">
+        <Stop offset="0.55" stopColor="#120A05" stopOpacity="0" />
+        <Stop offset="1" stopColor="#120A05" stopOpacity="0.42" />
+      </RadialGradient>
+    </>
+  );
+}
+
+/** Back wall + floor + baseboard, in one call. Pass `ambient` (the defs prefix) for soft room lighting. */
+export function Shell({ wallId, floorId, baseboard = '#E7D9C3', ambient }: { wallId: string; floorId: string; baseboard?: string; ambient?: string }) {
   return (
     <G>
       <Path d={`M0 0H390V${SEAM.right}L0 ${SEAM.left}Z`} fill={`url(#${wallId})`} />
       <Path d={`M0 ${SEAM.left}L390 ${SEAM.right}V760H0Z`} fill={`url(#${floorId})`} />
+      {ambient ? (
+        <G>
+          <Path d="M0 0H390V220H0Z" fill={`url(#${ambient}-ceiling)`} />
+          <Path d={`M0 ${SEAM.left - 46}L390 ${SEAM.right - 46}V${SEAM.right}L0 ${SEAM.left}Z`} fill={`url(#${ambient}-aoWall)`} />
+          <Path d={`M0 ${SEAM.left}L390 ${SEAM.right}V${SEAM.right + 70}L0 ${SEAM.left + 70}Z`} fill={`url(#${ambient}-aoFloor)`} />
+        </G>
+      ) : null}
       <Polygon points={pts([0, SEAM.left - 9], [390, SEAM.right - 9], [390, SEAM.right], [0, SEAM.left])} fill={baseboard} />
-      <Line x1={0} y1={SEAM.left - 9} x2={390} y2={SEAM.right - 9} stroke="rgba(53,47,41,0.12)" strokeWidth={0.8} />
-      <Line x1={0} y1={SEAM.left} x2={390} y2={SEAM.right} stroke="rgba(20,12,6,0.35)" strokeWidth={1} />
+      <Line x1={0} y1={SEAM.left - 9} x2={390} y2={SEAM.right - 9} stroke="rgba(53,47,41,0.16)" strokeWidth={0.8} />
+      <Line x1={0} y1={SEAM.left} x2={390} y2={SEAM.right} stroke="rgba(20,12,6,0.45)" strokeWidth={1} />
     </G>
   );
+}
+
+/** Corner falloff over the whole room; draw it last in the back layer. */
+export function Vignette({ ambient }: { ambient: string }) {
+  return <Path d="M0 0H390V760H0Z" fill={`url(#${ambient}-vignette)`} />;
 }
 
 /** Long floorboards running away from the camera. */

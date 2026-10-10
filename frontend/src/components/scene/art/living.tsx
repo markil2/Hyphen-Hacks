@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, wallGradient, wood } from './shared';
+import { ambientDefs, ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The living room: a soft sofa, a bookshelf of saved answers, a phone on the side table. */
 
@@ -27,7 +27,7 @@ function Bookshelf() {
   };
   return (
     <G>
-      <ContactShadow id="liv-shadow" cx={340} cy={348} rx={56} ry={9} opacity={0.6} />
+      <ContactShadow id="liv-shadow" cx={340} cy={348} rx={56} ry={9} opacity={0.75} />
       <Quad p={[[294, 96], [384, 108], [384, 352], [294, 340]]} fill={wood.face} />
       <Quad p={[[300, 102], [378, 112], [378, 344], [300, 334]]} fill="#5A4130" />
       {[150, 210, 270].map((y) => (
@@ -45,7 +45,7 @@ function Bookshelf() {
 function Sofa() {
   return (
     <G>
-      <ContactShadow id="liv-shadow" cx={122} cy={404} rx={120} ry={16} opacity={0.6} />
+      <ContactShadow id="liv-shadow" cx={122} cy={404} rx={120} ry={16} opacity={0.75} />
       {/* back */}
       <Quad p={[[26, 270], [222, 296], [222, 352], [26, 326]]} fill="#93A3AF" />
       <Quad p={[[26, 270], [222, 296], [224, 290], [28, 264]]} fill="#A9B9C6" />
@@ -73,7 +73,7 @@ function Sofa() {
 function SideTable() {
   return (
     <G>
-      <ContactShadow id="liv-shadow" cx={262} cy={424} rx={28} ry={6} opacity={0.6} />
+      <ContactShadow id="liv-shadow" cx={262} cy={424} rx={28} ry={6} opacity={0.75} />
       <Path d="M254 362 L246 422 M270 364 L278 424 M262 366 L262 428" stroke={wood.side} strokeWidth={3} strokeLinecap="round" />
       <Ellipse cx={262} cy={360} rx={26} ry={9} fill={wood.top} />
       <Ellipse cx={262} cy={362} rx={26} ry={9} fill={wood.face} opacity={0.4} />
@@ -103,10 +103,12 @@ function FloorLamp() {
 export const livingArt: RoomArt = {
   id: 'living',
   floor: '#7E5D40',
-  wall: '#CDB898',
+  // Matches the top of the wall under the ceiling shade.
+  wall: '#8A765C',
   defs: (
     <>
-      {wallGradient('liv-wall', '#CDB898', '#E2D3BC')}
+      {wallGradient('liv-wall', '#B39C7B', '#DCCAB0')}
+      {ambientDefs('liv')}
       <LinearGradient id="liv-floor" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0" stopColor="#A47E5A" />
         <Stop offset="1" stopColor="#7E5D40" />
@@ -120,7 +122,7 @@ export const livingArt: RoomArt = {
       depth: 0.12,
       node: (
         <G>
-          <Shell wallId="liv-wall" floorId="liv-floor" baseboard="#DCCBB2" />
+          <Shell wallId="liv-wall" floorId="liv-floor" baseboard="#DCCBB2" ambient="liv" />
           <Floorboards />
           <Rug />
           {/* two small framed photos */}
@@ -144,6 +146,7 @@ export const livingArt: RoomArt = {
       ),
     },
     { depth: 0.7, node: <SideTable /> },
+    { depth: 0.3, node: <Vignette ambient="liv" /> },
   ],
   glow: (
     <G>

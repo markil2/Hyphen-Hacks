@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, wallGradient, wood } from './shared';
+import { ambientDefs, ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The kitchen by day: a window, a sage counter run, an open pantry shelf, a high chair. */
 
@@ -76,7 +76,7 @@ function Counter() {
   const F1: [number, number] = [384, 326];
   return (
     <G>
-      <ContactShadow id="kit-shadow" cx={280} cy={404} rx={140} ry={16} opacity={0.5} />
+      <ContactShadow id="kit-shadow" cx={280} cy={404} rx={140} ry={16} opacity={0.65} />
       {/* left end panel */}
       <Quad p={[F0, B0, [178, 324], [162, 376]]} fill="#6C7A68" />
       {/* cabinet fronts */}
@@ -112,7 +112,7 @@ function Bottle() {
 function HighChair() {
   return (
     <G>
-      <ContactShadow id="kit-shadow" cx={118} cy={512} rx={70} ry={13} opacity={0.6} />
+      <ContactShadow id="kit-shadow" cx={118} cy={512} rx={70} ry={13} opacity={0.75} />
       {/* back legs */}
       <Path d="M100 398 L90 494 M150 404 L160 496" stroke={wood.side} strokeWidth={6} strokeLinecap="round" />
       {/* backrest */}
@@ -143,10 +143,12 @@ function HighChair() {
 export const kitchenArt: RoomArt = {
   id: 'kitchen',
   floor: '#8F6A47',
-  wall: '#D6C3A6',
+  // Matches the top of the wall under the ceiling shade.
+  wall: '#928067',
   defs: (
     <>
-      {wallGradient('kit-wall', '#D6C3A6', '#E8DAC4')}
+      {wallGradient('kit-wall', '#BFA98A', '#E3D3BA')}
+      {ambientDefs('kit')}
       <LinearGradient id="kit-floor" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0" stopColor="#B58C62" />
         <Stop offset="1" stopColor="#8F6A47" />
@@ -164,7 +166,7 @@ export const kitchenArt: RoomArt = {
       depth: 0.12,
       node: (
         <G>
-          <Shell wallId="kit-wall" floorId="kit-floor" baseboard="#E2D3BB" />
+          <Shell wallId="kit-wall" floorId="kit-floor" baseboard="#E2D3BB" ambient="kit" />
           <Floorboards color="rgba(90,60,34,0.2)" />
           <Window />
           <PantryShelf />
@@ -181,6 +183,7 @@ export const kitchenArt: RoomArt = {
       ),
     },
     { depth: 0.85, node: <HighChair /> },
+    { depth: 0.3, node: <Vignette ambient="kit" /> },
   ],
   glow: (
     <G>

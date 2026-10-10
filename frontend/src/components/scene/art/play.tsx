@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, wallGradient, wood } from './shared';
+import { ambientDefs, ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The play corner: a round mat with a few toys, a low bookshelf, a wooden growth board. */
 
@@ -33,7 +33,7 @@ function GrowthBoard() {
 function LowShelf() {
   return (
     <G>
-      <ContactShadow id="ply-shadow" cx={98} cy={338} rx={76} ry={9} opacity={0.6} />
+      <ContactShadow id="ply-shadow" cx={98} cy={338} rx={76} ry={9} opacity={0.75} />
       <Quad p={[[34, 244], [166, 262], [166, 334], [34, 316]]} fill={wood.face} />
       <Quad p={[[34, 244], [166, 262], [170, 256], [38, 238]]} fill={wood.top} />
       <Quad p={[[40, 254], [160, 270], [160, 290], [40, 274]]} fill="#5A4130" />
@@ -65,7 +65,7 @@ function Toys() {
   return (
     <G>
       {/* stacking rings */}
-      <ContactShadow id="ply-shadow" cx={160} cy={454} rx={22} ry={5} opacity={0.5} />
+      <ContactShadow id="ply-shadow" cx={160} cy={454} rx={22} ry={5} opacity={0.65} />
       <Ellipse cx={160} cy={450} rx={18} ry={6} fill="#B9826B" />
       <Ellipse cx={160} cy={442} rx={15} ry={5} fill="#D8C6AC" />
       <Ellipse cx={160} cy={435} rx={12} ry={4} fill="#879783" />
@@ -73,7 +73,7 @@ function Toys() {
       <SvgRect x={158} y={410} width={4} height={22} rx={2} fill={wood.face} />
       <Circle cx={160} cy={409} r={4} fill={wood.top} />
       {/* soft ball */}
-      <ContactShadow id="ply-shadow" cx={238} cy={456} rx={16} ry={4} opacity={0.5} />
+      <ContactShadow id="ply-shadow" cx={238} cy={456} rx={16} ry={4} opacity={0.65} />
       <Circle cx={238} cy={444} r={13} fill="#E7DDCB" />
       <Path d="M226 440 Q238 452 250 440 M238 431 Q232 444 238 457" stroke="#B9826B" strokeWidth={1.6} fill="none" />
       {/* a wooden car */}
@@ -87,10 +87,12 @@ function Toys() {
 export const playArt: RoomArt = {
   id: 'play',
   floor: '#86643F',
-  wall: '#D3C0A1',
+  // Matches the top of the wall under the ceiling shade.
+  wall: '#8F7D64',
   defs: (
     <>
-      {wallGradient('ply-wall', '#D3C0A1', '#E7DAC5')}
+      {wallGradient('ply-wall', '#BAA585', '#E1D2BA')}
+      {ambientDefs('ply')}
       <LinearGradient id="ply-floor" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0" stopColor="#B08B63" />
         <Stop offset="1" stopColor="#86643F" />
@@ -104,7 +106,7 @@ export const playArt: RoomArt = {
       depth: 0.12,
       node: (
         <G>
-          <Shell wallId="ply-wall" floorId="ply-floor" baseboard="#DCCBB2" />
+          <Shell wallId="ply-wall" floorId="ply-floor" baseboard="#DCCBB2" ambient="ply" />
           <Floorboards />
           <GrowthBoard />
           {/* bunting, quiet */}
@@ -125,6 +127,7 @@ export const playArt: RoomArt = {
         </G>
       ),
     },
+    { depth: 0.3, node: <Vignette ambient="ply" /> },
   ],
   glow: <Ellipse cx={200} cy={240} rx={200} ry={160} fill="url(#ply-glow)" />,
 };

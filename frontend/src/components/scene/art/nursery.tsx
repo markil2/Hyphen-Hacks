@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ContactShadow, glowGradient, Quad, shadowGradient, Shell, wallGradient, wood } from './shared';
+import { ambientDefs, ContactShadow, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /**
  * The nursery at night, composed after the reference render:
@@ -69,7 +69,7 @@ function Crib() {
 
   return (
     <G>
-      <ContactShadow id="nur-shadow" cx={112} cy={452} rx={128} ry={26} opacity={0.75} />
+      <ContactShadow id="nur-shadow" cx={112} cy={452} rx={136} ry={30} opacity={0.9} />
       {/* back posts */}
       <SvgRect x={BACK.x0 - 3} y={BACK.y0 - 4} width={7} height={RAIL_H - 6} fill={wood.side} />
       <SvgRect x={BACK.x1 - 3} y={BACK.y1 - 4} width={7} height={RAIL_H - 6} fill={wood.side} />
@@ -104,7 +104,7 @@ function Crib() {
 function Nightstand() {
   return (
     <G>
-      <ContactShadow id="nur-shadow" cx={258} cy={392} rx={46} ry={11} opacity={0.7} />
+      <ContactShadow id="nur-shadow" cx={258} cy={394} rx={50} ry={13} opacity={0.85} />
       <Quad p={[[234, 304], [288, 312], [280, 344], [226, 336]]} fill={wood.top} />
       <Quad p={[[280, 344], [288, 312], [288, 358], [280, 392]]} fill={wood.side} />
       <Quad p={[[226, 336], [280, 344], [280, 392], [226, 384]]} fill={wood.face} />
@@ -163,14 +163,16 @@ function Toys() {
 
 export const nurseryArt: RoomArt = {
   id: 'nursery',
-  floor: '#2C2019',
-  wall: '#A8916F',
+  floor: '#1C140E',
+  // Matches the top of the wall under the ceiling shade.
+  wall: '#63513D',
   defs: (
     <>
-      {wallGradient('nur-wall', '#A8916F', '#CDB898')}
+      {wallGradient('nur-wall', '#7E6950', '#B49B7B')}
+      {ambientDefs('nur')}
       <LinearGradient id="nur-floor" x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor="#4A3628" />
-        <Stop offset="1" stopColor="#2C2019" />
+        <Stop offset="0" stopColor="#3A2A1E" />
+        <Stop offset="1" stopColor="#1C140E" />
       </LinearGradient>
       <LinearGradient id="nur-mattress" x1="0" y1="0" x2="1" y2="1">
         <Stop offset="0" stopColor="#F4EEE3" />
@@ -178,6 +180,7 @@ export const nurseryArt: RoomArt = {
       </LinearGradient>
       {shadowGradient('nur-shadow')}
       {glowGradient('nur-glow', '#FFD79A', 0.85)}
+      {glowGradient('nur-wash', '#FFE1B0', 0.32)}
       {glowGradient('nur-pool', '#FFC983', 0.5)}
       {glowGradient('nur-core', '#FFF4DC', 1)}
     </>
@@ -187,10 +190,13 @@ export const nurseryArt: RoomArt = {
       depth: 0.12,
       node: (
         <G>
-          <Shell wallId="nur-wall" floorId="nur-floor" baseboard="#C9B595" />
+          <Shell wallId="nur-wall" floorId="nur-floor" baseboard="#A8916F" ambient="nur" />
+          {/* the crib's soft shadow on the wall, thrown left by the lamp */}
+          <ContactShadow id="nur-shadow" cx={92} cy={262} rx={128} ry={58} opacity={0.42} />
           {/* a soft wool rug, so the floor reads as a room rather than a void */}
-          <Ellipse cx={200} cy={560} rx={178} ry={64} fill="#5A4536" />
-          <Ellipse cx={200} cy={560} rx={160} ry={55} fill="none" stroke="#6B5444" strokeWidth={3} />
+          <Ellipse cx={200} cy={564} rx={180} ry={66} fill="#120A05" opacity={0.25} />
+          <Ellipse cx={200} cy={560} rx={178} ry={64} fill="#4A382B" />
+          <Ellipse cx={200} cy={560} rx={160} ry={55} fill="none" stroke="#5A4535" strokeWidth={3} />
           <WallDetails />
         </G>
       ),
@@ -205,10 +211,12 @@ export const nurseryArt: RoomArt = {
       ),
     },
     { depth: 0.85, node: <Toys /> },
+    { depth: 0.3, node: <Vignette ambient="nur" /> },
   ],
   glow: (
     <G>
-      <Ellipse cx={256} cy={296} rx={210} ry={190} fill="url(#nur-glow)" />
+      <Ellipse cx={240} cy={260} rx={360} ry={300} fill="url(#nur-wash)" />
+      <Ellipse cx={256} cy={296} rx={220} ry={200} fill="url(#nur-glow)" />
       <Ellipse cx={262} cy={420} rx={160} ry={64} fill="url(#nur-pool)" />
       <SvgRect x={240} y={280} width={30} height={38} rx={9} fill="#FFF1D6" />
       <Ellipse cx={255} cy={300} rx={22} ry={26} fill="url(#nur-core)" />

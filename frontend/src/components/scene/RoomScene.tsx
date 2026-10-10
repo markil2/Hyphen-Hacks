@@ -208,7 +208,8 @@ function GlowLayer({
   calm: boolean;
   children: ReactNode;
 }) {
-  const style = useAnimatedStyle(() => ({ opacity: 0.25 + light.value * 0.75 }));
+  // The lamp's light fully follows the lamp: off means off.
+  const style = useAnimatedStyle(() => ({ opacity: light.value }));
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
       <ParallaxLayer depth={0.5} {...parallax}>
@@ -218,14 +219,14 @@ function GlowLayer({
   );
 }
 
-/** Darkens the room as the lamp dims, so the change reads without colour alone. */
+/** Darkens the room as the lamp goes off — dark enough to read as "lights out", not black. */
 function NightVeil({ light }: { light: SharedValue<number> }) {
-  const style = useAnimatedStyle(() => ({ opacity: (1 - light.value) * 0.42 }));
+  const style = useAnimatedStyle(() => ({ opacity: (1 - light.value) * 0.8 }));
   return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.veil, style]} />;
 }
 
 const styles = StyleSheet.create({
   viewport: { flex: 1, overflow: 'hidden' },
-  veil: { backgroundColor: '#140D08' },
+  veil: { backgroundColor: '#07050A' },
   wallFill: { position: 'absolute', top: 0, left: 0, right: 0 },
 });

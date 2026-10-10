@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ContactShadow, glowGradient, Quad, shadowGradient, Shell, wallGradient, wood } from './shared';
+import { ambientDefs, ContactShadow, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The changing area: a wooden dresser with a changing pad, a basket, folded cloths. */
 
@@ -24,7 +24,7 @@ function Dresser() {
   };
   return (
     <G>
-      <ContactShadow id="chg-shadow" cx={222} cy={400} rx={110} ry={14} opacity={0.6} />
+      <ContactShadow id="chg-shadow" cx={222} cy={400} rx={110} ry={14} opacity={0.75} />
       {/* top */}
       <Quad p={[[150, 236], [314, 258], [300, 294], [136, 272]]} fill={wood.top} />
       {/* front */}
@@ -46,7 +46,7 @@ function Dresser() {
 function Basket() {
   return (
     <G>
-      <ContactShadow id="chg-shadow" cx={76} cy={442} rx={50} ry={9} opacity={0.6} />
+      <ContactShadow id="chg-shadow" cx={76} cy={442} rx={50} ry={9} opacity={0.75} />
       <Path d="M36 384 L118 394 L110 440 L44 432 Z" fill="#C9A57C" />
       {[0, 1, 2, 3].map((i) => (
         <Path key={i} d={`M${38 + i * 0.5} ${394 + i * 11} L${116 - i * 2} ${404 + i * 11}`} stroke="#A57E58" strokeWidth={1.4} />
@@ -84,10 +84,12 @@ function WallShelf() {
 export const changingArt: RoomArt = {
   id: 'changing',
   floor: '#7A5A3E',
-  wall: '#D2BEA0',
+  // Matches the top of the wall under the ceiling shade.
+  wall: '#8D7B62',
   defs: (
     <>
-      {wallGradient('chg-wall', '#D2BEA0', '#E6D8C2')}
+      {wallGradient('chg-wall', '#B8A283', '#E0D0B7')}
+      {ambientDefs('chg')}
       <LinearGradient id="chg-floor" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0" stopColor="#A9845E" />
         <Stop offset="1" stopColor="#7A5A3E" />
@@ -101,7 +103,7 @@ export const changingArt: RoomArt = {
       depth: 0.12,
       node: (
         <G>
-          <Shell wallId="chg-wall" floorId="chg-floor" baseboard="#DDCDB4" />
+          <Shell wallId="chg-wall" floorId="chg-floor" baseboard="#DDCDB4" ambient="chg" />
           <Ellipse cx={200} cy={470} rx={190} ry={48} fill="#D9CAB1" opacity={0.55} />
           <WallShelf />
         </G>
@@ -109,6 +111,7 @@ export const changingArt: RoomArt = {
     },
     { depth: 0.4, node: <Dresser /> },
     { depth: 0.75, node: <Basket /> },
+    { depth: 0.3, node: <Vignette ambient="chg" /> },
   ],
   glow: <Ellipse cx={220} cy={220} rx={190} ry={150} fill="url(#chg-glow)" />,
 };
