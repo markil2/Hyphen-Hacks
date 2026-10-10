@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import jwt from "jsonwebtoken";
 import request from "supertest";
 import express from "express";
 import { afterAll, describe, expect, it } from "vitest";
@@ -6,17 +8,23 @@ import { prisma } from "../src/db";
 
 let token = ""; let babyId = ""; let questionId = ""; let otherToken = ""; let familyId = ""; let otherMembershipId = "";
 const auth = () => ({ Authorization: `Bearer ${token}` });
-async function registerAndVerify(name: string, email: string, password = "safe-test-password") {
-  const register = await request(app).post("/api/auth/register").send({ name, email, password });
-  expect(register.status).toBe(201); expect(register.body.data.emailSent).toBe(true); expect(register.body.data.developmentToken).toBeTruthy();
-  const verified = await request(app).post("/api/auth/verify-email").send({ token: register.body.data.developmentToken });
-  expect(verified.status).toBe(200);
-  return verified.body.data.token as string;
+const supabaseUsers = new Map<string, string>();
+/** A Supabase-shaped access token, as the app would get from supabase.auth.signInWithPassword. */
+function supabaseToken(name: string, email: string, sub = supabaseUsers.get(email) ?? randomUUID(), secret = process.env.SUPABASE_JWT_SECRET!) {
+  supabaseUsers.set(email, sub);
+  return jwt.sign({ sub, email, role: "authenticated", user_metadata: { name } }, secret, { audience: "authenticated", expiresIn: "1h" });
+}
+/** Signs a parent in; the API creates their Nurture profile and household on first use. */
+async function signIn(name: string, email: string) {
+  const token = supabaseToken(name, email);
+  const me = await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${token}` });
+  expect(me.status).toBe(200); expect(me.body.data.email).toBe(email);
+  return token;
 }
 
 describe("Nurture API", () => {
-  it("registers a parent and creates a baby profile", async () => {
-    token = await registerAndVerify("Test Parent", "parent@example.test");
+  it("creates a Nurture profile on first Supabase sign-in and adds a baby", async () => {
+    token = await signIn("Test Parent", "parent@example.test");
     const baby = await request(app).post("/api/babies").set(auth()).send({ name: "Test Baby", birthDate: "2026-01-01", sexAtBirth: "not_recorded", initialWeight: 7.5, weightUnit: "lb", initialHeight: 50, heightUnit: "cm" });
     expect(baby.status).toBe(201); expect(baby.body.data.name).toBe("Test Baby"); expect(baby.body.data.familyId).toBeTruthy(); babyId = baby.body.data.id;
   });
@@ -92,7 +100,7 @@ describe("Nurture API", () => {
   });
 
   it("prevents another parent from accessing this family's baby", async () => {
-    otherToken = await registerAndVerify("Other Parent", "other@example.test");
+    otherToken = await signIn("Other Parent", "other@example.test");
     const response = await request(app).get(`/api/babies/${babyId}/dashboard`).set({ Authorization: `Bearer ${otherToken}` });
     expect(response.status).toBe(404); expect(response.body.error.code).toBe("BABY_NOT_FOUND");
   });
@@ -127,25 +135,26 @@ describe("Nurture API", () => {
     expect(exported.status).toBe(200); expect(exported.body.data.babies.some((baby: { id: string }) => baby.id === babyId)).toBe(true); expect(exported.body.data.user.passwordHash).toBeUndefined();
   });
 
-  it("resets an account password through an expiring email token", async () => {
-    const forgot = await request(app).post("/api/auth/forgot-password").send({ email: "other@example.test" });
-    expect(forgot.status).toBe(200); expect(forgot.body.data.developmentToken).toBeTruthy();
-    const reset = await request(app).post("/api/auth/reset-password").send({ token: forgot.body.data.developmentToken, password: "new-safe-password" });
-    expect(reset.status).toBe(200);
-    const login = await request(app).post("/api/auth/login").send({ email: "other@example.test", password: "new-safe-password" });
-    expect(login.status).toBe(200);
-    const reused = await request(app).post("/api/auth/reset-password").send({ token: forgot.body.data.developmentToken, password: "another-password" });
-    expect(reused.status).toBe(400); expect(reused.body.error.code).toBe("INVALID_TOKEN");
+  it("rejects forged, wrong-audience and anonymous Supabase tokens", async () => {
+    const forged = await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${supabaseToken("Forger", "forger@example.test", randomUUID(), "not-the-project-secret-at-all")}` });
+    expect(forged.status).toBe(401);
+    const anon = jwt.sign({ sub: randomUUID(), role: "anon" }, process.env.SUPABASE_JWT_SECRET!, { audience: "authenticated" });
+    expect((await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${anon}` })).status).toBe(401);
+    const wrongAudience = jwt.sign({ sub: randomUUID(), email: "aud@example.test", role: "authenticated" }, process.env.SUPABASE_JWT_SECRET!, { audience: "someone-else" });
+    expect((await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${wrongAudience}` })).status).toBe(401);
+    expect((await request(app).get("/api/babies")).status).toBe(401);
   });
 
-  it("rejects expired verification and invitation tokens", async () => {
-    const registration = await request(app).post("/api/auth/register").send({ name: "Expired Token", email: "expired@example.test", password: "expired-password" });
-    const tokenHash = (await prisma.accountEmailToken.findFirstOrThrow({ where: { user: { email: "expired@example.test" }, type: "verify_email" } })).tokenHash;
-    await prisma.accountEmailToken.update({ where: { tokenHash }, data: { expiresAt: new Date(Date.now() - 1000) } });
-    const verification = await request(app).post("/api/auth/verify-email").send({ token: registration.body.data.developmentToken });
-    expect(verification.status).toBe(400); expect(verification.body.error.code).toBe("INVALID_TOKEN");
+  it("links the same Supabase user to the same profile every time", async () => {
+    const first = await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${supabaseToken("Other Parent", "other@example.test")}` });
+    const again = await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${supabaseToken("Other Parent", "other@example.test")}` });
+    expect(first.body.data.id).toBe(again.body.data.id);
+    const families = await request(app).get("/api/families").set({ Authorization: `Bearer ${otherToken}` });
+    expect(families.status).toBe(200); expect(families.body.data.some((m: { role: string }) => m.role === "owner")).toBe(true);
+  });
 
-    const inviteeToken = await registerAndVerify("Expired Invitee", "expired-invite@example.test");
+  it("rejects expired invitation tokens", async () => {
+    const inviteeToken = await signIn("Expired Invitee", "expired-invite@example.test");
     const invitation = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "expired-invite@example.test", role: "parent" });
     await prisma.familyInvitation.update({ where: { id: invitation.body.data.invitation.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
     const accepted = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${inviteeToken}` }).send({ token: invitation.body.data.developmentToken });
@@ -153,7 +162,7 @@ describe("Nurture API", () => {
   });
 
   it("prevents duplicate, mismatched, reused, and revoked family invitations", async () => {
-    const invitedToken = await registerAndVerify("Invite Rules", "invite-rules@example.test");
+    const invitedToken = await signIn("Invite Rules", "invite-rules@example.test");
     const first = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "invite-rules@example.test", role: "parent" });
     expect(first.status).toBe(201);
     const duplicate = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "invite-rules@example.test", role: "parent" });
@@ -165,7 +174,7 @@ describe("Nurture API", () => {
     const reused = await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${invitedToken}` }).send({ token: first.body.data.developmentToken });
     expect(reused.status).toBe(400); expect(reused.body.error.code).toBe("INVALID_INVITATION");
 
-    const revokedUserToken = await registerAndVerify("Revoked Invite", "revoked@example.test");
+    const revokedUserToken = await signIn("Revoked Invite", "revoked@example.test");
     const revocable = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "revoked@example.test", role: "caregiver" });
     const revoked = await request(app).delete(`/api/families/${familyId}/invitations/${revocable.body.data.invitation.id}`).set(auth());
     expect(revoked.status).toBe(200);
@@ -174,7 +183,7 @@ describe("Nurture API", () => {
   });
 
   it("enforces caregiver permissions while allowing shared care tracking", async () => {
-    const caregiverToken = await registerAndVerify("Care Giver", "caregiver@example.test");
+    const caregiverToken = await signIn("Care Giver", "caregiver@example.test");
     const invite = await request(app).post(`/api/families/${familyId}/invitations`).set(auth()).send({ email: "caregiver@example.test", role: "caregiver" });
     await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${caregiverToken}` }).send({ token: invite.body.data.developmentToken });
     const caregiverAuth = { Authorization: `Bearer ${caregiverToken}` };
@@ -193,15 +202,15 @@ describe("Nurture API", () => {
   });
 
   it("preserves shared baby records when an owner deletes their account", async () => {
-    const ownerToken = await registerAndVerify("Deleting Owner", "deleting-owner@example.test", "owner-password");
-    const coParentToken = await registerAndVerify("Remaining Parent", "remaining-parent@example.test");
+    const ownerToken = await signIn("Deleting Owner", "deleting-owner@example.test");
+    const coParentToken = await signIn("Remaining Parent", "remaining-parent@example.test");
     const ownerAuth = { Authorization: `Bearer ${ownerToken}` };
     const ownerFamilies = await request(app).get("/api/families").set(ownerAuth);
     const sharedFamilyId = ownerFamilies.body.data[0].family.id;
     const sharedBaby = await request(app).post("/api/babies").set(ownerAuth).send({ name: "Preserved Baby", birthDate: "2026-02-01", familyId: sharedFamilyId });
     const invitation = await request(app).post(`/api/families/${sharedFamilyId}/invitations`).set(ownerAuth).send({ email: "remaining-parent@example.test", role: "parent" });
     await request(app).post("/api/families/invitations/accept").set({ Authorization: `Bearer ${coParentToken}` }).send({ token: invitation.body.data.developmentToken });
-    const deleted = await request(app).delete("/api/settings/account").set(ownerAuth).send({ password: "owner-password", confirmation: "DELETE MY ACCOUNT" });
+    const deleted = await request(app).delete("/api/settings/account").set(ownerAuth).send({ confirmation: "DELETE MY ACCOUNT" });
     expect(deleted.status).toBe(200);
     const preserved = await request(app).get(`/api/babies/${sharedBaby.body.data.id}`).set({ Authorization: `Bearer ${coParentToken}` });
     expect(preserved.status).toBe(200); expect(preserved.body.data.name).toBe("Preserved Baby");
@@ -221,9 +230,9 @@ describe("Nurture API", () => {
   });
 
   it("returns safe errors for malformed and oversized JSON", async () => {
-    const malformed = await request(app).post("/api/auth/login").set("Content-Type", "application/json").send('{"email":');
+    const malformed = await request(app).post("/api/questions").set(auth()).set("Content-Type", "application/json").send('{"question":');
     expect(malformed.status).toBe(400); expect(malformed.body.error.code).toBe("INVALID_JSON");
-    const oversized = await request(app).post("/api/auth/login").set("Content-Type", "application/json").send(JSON.stringify({ email: "large@example.test", password: "x".repeat(110_000) }));
+    const oversized = await request(app).post("/api/questions").set(auth()).set("Content-Type", "application/json").send(JSON.stringify({ question: "x".repeat(110_000), category: "general" }));
     expect(oversized.status).toBe(413); expect(oversized.body.error.code).toBe("REQUEST_TOO_LARGE");
   });
 
@@ -249,20 +258,19 @@ describe("Nurture API", () => {
   });
 
   it("keeps maternal tracking private to its authenticated owner", async () => {
-    const other = await request(app).post("/api/auth/login").send({ email: "other@example.test", password: "new-safe-password" });
-    const response = await request(app).get("/api/maternal/profile").set({ Authorization: `Bearer ${other.body.data.token}` });
+    const response = await request(app).get("/api/maternal/profile").set({ Authorization: `Bearer ${otherToken}` });
     expect(response.status).toBe(404); expect(response.body.error.code).toBe("MATERNAL_PROFILE_NOT_FOUND");
   });
 
-  it("blocks unverified login and anonymizes a deleted account", async () => {
-    const register = await request(app).post("/api/auth/register").send({ name: "Delete Test", email: "delete@example.test", password: "delete-test-password" });
-    expect(register.status).toBe(201);
-    const unverified = await request(app).post("/api/auth/login").send({ email: "delete@example.test", password: "delete-test-password" });
-    expect(unverified.status).toBe(403); expect(unverified.body.error.code).toBe("EMAIL_NOT_VERIFIED");
-    const verify = await request(app).post("/api/auth/verify-email").send({ token: register.body.data.developmentToken });
-    const deleteToken = verify.body.data.token;
-    const deleted = await request(app).delete("/api/settings/account").set({ Authorization: `Bearer ${deleteToken}` }).send({ password: "delete-test-password", confirmation: "DELETE MY ACCOUNT" });
+  it("anonymizes a deleted account and refuses its token afterwards", async () => {
+    const deleteToken = await signIn("Delete Test", "delete@example.test");
+    const missingConfirmation = await request(app).delete("/api/settings/account").set({ Authorization: `Bearer ${deleteToken}` }).send({});
+    expect(missingConfirmation.status).toBe(400);
+    const deleted = await request(app).delete("/api/settings/account").set({ Authorization: `Bearer ${deleteToken}` }).send({ confirmation: "DELETE MY ACCOUNT" });
     expect(deleted.status).toBe(200); expect(deleted.body.data.accountDeleted).toBe(true);
+    const row = await prisma.user.findFirstOrThrow({ where: { supabaseUserId: supabaseUsers.get("delete@example.test") } });
+    expect(row.deletedAt).toBeTruthy(); expect(row.name).toBe("Deleted User"); expect(row.email).toMatch(/^deleted-/);
+    // A still-valid token for the deleted Supabase user must not quietly recreate the account.
     const denied = await request(app).get("/api/auth/me").set({ Authorization: `Bearer ${deleteToken}` });
     expect(denied.status).toBe(401);
   });

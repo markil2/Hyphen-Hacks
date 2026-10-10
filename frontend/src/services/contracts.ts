@@ -29,7 +29,18 @@ import type { Catalog, DocRepo, Repo } from './types';
 export interface RemoteServices {
   mode: 'api' | 'demo';
   baby: DocRepo<Baby>;
-  account: { get(): Promise<Account> };
+  /** Babies the signed-in parent can see; a new account starts with none. */
+  babies: {
+    list(): Promise<Baby[]>;
+    create(input: { name: string; birthDate: string }): Promise<Baby>;
+  };
+  account: {
+    get(): Promise<Account>;
+    /** Removes the Nurture profile (and, when the server allows, the sign-in). */
+    remove(): Promise<{ authAccountDeleted: boolean }>;
+  };
+  /** Forget anything cached for the previous user (call on sign-in/out). */
+  resetSession(): void;
   sleep: Repo<SleepSession>;
   feedings: Repo<FeedingEntry>;
   diapers: Repo<DiaperEntry>;

@@ -4,8 +4,11 @@
  * - Base URL comes from EXPO_PUBLIC_API_URL (e.g. http://localhost:8000/api).
  * - Unwraps the backend's `{ success, data }` envelope.
  * - Turns every failure into an ApiError with a calm, user-facing message.
+ * - Sends the Supabase access token when someone is signed in.
  * - Never logs request or response bodies (they can contain private care data).
  */
+
+import { accessToken } from '@/lib/supabase';
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/$/, '');
 
@@ -27,7 +30,8 @@ const friendly: Record<string, string> = {
   TIMEOUT: 'Nurture is taking too long to respond. Please try again.',
   RATE_LIMITED: 'That was a lot of requests in a short time. Wait a moment and try again.',
   VALIDATION_ERROR: 'Some details don’t look right. Please check and try again.',
-  UNAUTHORIZED: 'You’re signed out. Please sign in again.',
+  UNAUTHORIZED: 'Your session has ended. Please sign in again.',
+  ACCOUNT_CONFLICT: 'This email is already linked to another Nurture account.',
   SLEEP_ALREADY_ACTIVE: 'A sleep session is already running.',
   BAD_RESPONSE: 'Nurture sent back something unexpected. Please try again.',
 };
@@ -57,13 +61,18 @@ export async function api<T>(
   options: { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; query?: Query } = {},
 ): Promise<T> {
   if (!API_URL) throw new ApiError('The Nurture server isn’t configured.', 0, 'NOT_CONFIGURED');
+  const token = await accessToken();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   let response: Response;
   try {
     response = await fetch(buildUrl(path, options.query), {
       method: options.method ?? 'GET',
-      headers: { Accept: 'application/json', ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      headers: {
+        Accept: 'application/json',
+        ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal: controller.signal,
     });

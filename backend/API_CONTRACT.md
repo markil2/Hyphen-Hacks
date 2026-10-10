@@ -1,6 +1,6 @@
 # Nurture API Contract
 
-Base URL: `http://localhost:8000/api`. JSON request and response bodies use UTF-8. Except for health, registration, and login, endpoints require `Authorization: Bearer <JWT>`. In local `DEMO_MODE=true`, an omitted token uses the seeded fictional parent.
+Base URL: `http://localhost:8000/api`. JSON request and response bodies use UTF-8. Except for health, endpoints require `Authorization: Bearer <Supabase access token>`. In `DEMO_MODE=true`, an omitted token uses the seeded fictional parent.
 
 ## Response envelope
 
@@ -23,20 +23,15 @@ Typical status codes are `200`, `201`, `400`, `401`, `404`, `409`, `429`, and `5
 | Method | Path | Body / query | Result |
 |---|---|---|---|
 | GET | `/health` | none | `{ status, demoMode }` |
-| POST | `/auth/register` | `{ name, email, password }` (password 8–128 chars) | unverified user and email-delivery acknowledgement |
-| POST | `/auth/verify-email` | `{ token }` | verified user and JWT |
-| POST | `/auth/resend-verification` | `{ email }` | generic delivery acknowledgement |
-| POST | `/auth/login` | `{ email, password }` | `{ user, token }` |
-| POST | `/auth/forgot-password` | `{ email }` | generic delivery acknowledgement |
-| POST | `/auth/reset-password` | `{ token, password }` | reset acknowledgement |
-| GET | `/auth/me` | none | authenticated user |
+| GET | `/auth/me` | none | authenticated user's Nurture profile |
 
-```json
-POST /auth/register
-{ "name": "Parent Name", "email": "parent@example.com", "password": "long-password" }
-```
+Sign-up, sign-in, email confirmation and password resets happen in the app with **Supabase Auth** (`supabase.auth.signUp`, `signInWithPassword`, `resetPasswordForEmail`, …). The client then sends the session's access token as `Authorization: Bearer <token>`.
 
-Registration creates a separate user account and a default family household, then emails a 24-hour verification link. It does not return a JWT until verification succeeds. Password-reset links expire after one hour. Production responses never include raw tokens; `developmentToken` is returned only when `EMAIL_PROVIDER=console`.
+The API verifies the token against the Supabase project's JWKS: issuer `<SUPABASE_URL>/auth/v1`, audience `authenticated`, role `authenticated`. It maps the Supabase user (`sub`) to a Nurture user:
+
+- On the first request from a new Supabase user, the API creates their profile (name from `user_metadata.name`) and a default family household with them as owner.
+- An existing profile with the same email and no Supabase link is linked instead.
+- Tokens for a deleted account are refused with `401`.
 
 ## Family accounts
 
@@ -59,14 +54,13 @@ Roles are `owner`, `parent`, and `caregiver`. Owners manage roles, revoke invita
 | Method | Path | Body | Result |
 |---|---|---|---|
 | GET | `/settings/account` | none | account and family memberships |
-| PATCH | `/settings/account` | `{ name? }` or `{ email, currentPassword }` | updated account; changed email requires verification |
-| PATCH | `/settings/password` | `{ currentPassword, newPassword }` | password changed |
+| PATCH | `/settings/account` | `{ name }` | updated account (email and password changes go through Supabase Auth) |
 | GET | `/settings/privacy` | none | current policy version and consent history |
 | POST | `/settings/privacy/consent` | `{ policyVersion }` | versioned consent record |
 | GET | `/settings/export` | none | JSON export of personal and accessible family data |
-| DELETE | `/settings/account` | `{ password, confirmation: "DELETE MY ACCOUNT" }` | account deletion/anonymization |
+| DELETE | `/settings/account` | `{ confirmation: "DELETE MY ACCOUNT" }` | `{ accountDeleted, authAccountDeleted }`; anonymizes the profile and, if `SUPABASE_SERVICE_ROLE_KEY` is set, deletes the Supabase sign-in |
 
-Exports omit password hashes and credentials. Account deletion removes private maternal records, questions, consultation requests, tokens, consents, and memberships. It anonymizes the user record so shared baby rows created by that user can remain available to other active family members.
+Exports omit password hashes and credentials. Account deletion removes private maternal records, questions, consultation requests, consents, and memberships. It anonymizes the user record so shared baby rows created by that user can remain available to other active family members.
 
 ## Babies
 

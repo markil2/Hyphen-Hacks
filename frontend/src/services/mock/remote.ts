@@ -40,12 +40,26 @@ export function demoServices(): RemoteServices {
   return {
     mode: 'demo',
     baby: localDoc('baby', seed.seedBaby),
+    babies: {
+      async list() {
+        await simulateNetwork();
+        return [seed.seedBaby()];
+      },
+      async create(input) {
+        await simulateNetwork();
+        return { ...seed.seedBaby(), ...input };
+      },
+    },
     account: {
       async get() {
         await simulateNetwork();
         return { name: 'Sam' };
       },
+      async remove() {
+        throw new Error('There is no account to delete in the offline demo.');
+      },
     },
+    resetSession() {},
     sleep,
     feedings,
     diapers,

@@ -141,6 +141,9 @@ export function createCatalog<T>(catalog: Catalog<T>) {
   const run = singleFlight();
   return {
     ...store,
+    reset() {
+      store.set({ items: [], status: 'idle', error: undefined });
+    },
     /** Put a record the server just returned into the list without refetching. */
     upsert(item: T & { id: string }, first = true) {
       const items = store.get().items as (T & { id: string })[];
@@ -186,6 +189,9 @@ export function createDoc<T>(repo: DocRepo<T>) {
   const run = singleFlight();
   return {
     ...store,
+    reset() {
+      store.set({ value: null, status: 'idle', error: undefined, saving: false });
+    },
     load(force = false) {
       const { status } = store.get();
       if (!force && (status === 'loading' || status === 'ready')) return Promise.resolve();
