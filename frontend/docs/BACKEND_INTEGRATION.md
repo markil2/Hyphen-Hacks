@@ -1,76 +1,70 @@
-# Backend integration guide
+# How the frontend uses the Nurture API
 
-This is for whoever builds the Nurture backend (`backend/`). The frontend currently runs entirely in **demo mode**: every
-record is sample data stored on the device with AsyncStorage. Nothing is sent anywhere.
+The app talks to the backend in `backend/` (see `backend/API_CONTRACT.md`). No backend code was changed for this integration.
 
-Everything below is a **proposal**. None of it is a fixed contract. If you want different paths or shapes, change them;
-the frontend only needs updates in `src/services/api/rest.ts` and `src/types/index.ts`.
+## Running both locally
 
-## How to switch the app to your API
+```bash
+# 1. Backend (once)
+cd backend
+cp .env.example .env          # then set FRONTEND_ORIGIN=http://localhost:8081 for the web preview
+npm install
+npm run prisma:generate
+npm run db:deploy
+npm run db:seed
+npm run dev                   # http://localhost:8000, DEMO_MODE=true (no login)
 
-1. Set `EXPO_PUBLIC_API_URL` in `frontend/.env`. Use your machine's LAN IP when testing on a phone,
-   e.g. `EXPO_PUBLIC_API_URL=http://192.168.1.20:8000`.
-2. Restart `npx expo start`.
+# 2. Frontend
+cd frontend
+cp .env.example .env          # EXPO_PUBLIC_API_URL=http://localhost:8000/api
+npx expo start                # i = iOS simulator, w = web, or scan with Expo Go
+```
 
-`src/services/index.ts` swaps every service from the mock to the REST adapter when the variable is set. Screens never call
-`fetch` directly, so no UI code changes.
+- **On a real phone:** use your computer's LAN IP instead of `localhost`, e.g. `http://192.168.1.20:8000/api`. Phone and computer must be on the same Wi-Fi.
+- **Rate limit:** the backend's default `RATE_LIMIT_MAX=100` per 15 minutes is easy to hit while developing. Raise it in your local `backend/.env`.
+- **Offline demo:** with `EXPO_PUBLIC_API_URL` empty, the app runs a self-contained offline demo instead, using sample data stored on the device. This is labelled in the UI, and Settings → Connection says which mode is active.
 
-## What the frontend expects
+## Where the code is
 
-The REST adapter (`src/services/api/rest.ts`) uses three shapes:
-
-| Kind | Calls |
+| File | Role |
 |---|---|
-| Collection | `GET /{resource}` → `T[]`, `POST /{resource}` → `T`, `PATCH /{resource}/{id}` → `T`, `DELETE /{resource}/{id}` → 204 |
-| Catalog (read-only) | `GET /{resource}` → `T[]` |
-| Document | `GET /{resource}` → `T`, `PUT /{resource}` → `T` |
+| `src/services/api/client.ts` | Base URL, timeout, `{ success, data }` unwrapping, calm `ApiError` messages. Never logs bodies. |
+| `src/services/api/types.ts` | Raw backend record shapes |
+| `src/services/api/map.ts` | Backend ↔ app type mapping, the only place that knows field names like `startTime` or `feedingType` |
+| `src/services/api/nurture.ts` | One adapter per resource |
+| `src/services/contracts.ts` | The interface both the API and the offline demo implement |
+| `src/services/index.ts` | Chooses API or offline demo |
 
-Send JSON. Errors can be any non-2xx status; the UI shows a retry state.
+The app has no login screen yet, so the backend must run with `DEMO_MODE=true`. The first baby returned by `GET /babies` is used for every baby-scoped call.
 
-| Resource | Kind | Type in `src/types/index.ts` |
-|---|---|---|
-| `profile` | Document | `Profile` |
-| `sleep-sessions` | Collection | `SleepSession` |
-| `feedings` | Collection | `FeedingEntry` (union on `kind`: `breast` / `formula` / `solid`) |
-| `diapers` | Collection | `DiaperEntry` |
-| `questions` | Collection | `Question` |
-| `consultations` | Collection | `Consultation` (includes `messages[]`) |
-| `saved` | Collection | `SavedItem` |
-| `pediatrician-notes` | Collection | `PediatricianNote` |
-| `activity-progress` | Collection | `ActivityProgress` |
-| `community/posts` | Collection | `Post` |
-| `products` | Catalog | `Product` |
-| `experts` | Catalog | `Expert` |
-| `milestones` | Catalog | `Milestone` |
-| `activities` | Catalog | `Activity` |
-| `community/groups` | Catalog | `CommunityGroup` |
+## Endpoints in use
 
-### Conventions
+| Screen | Endpoints |
+|---|---|
+| Home | `GET /babies/:id/dashboard?timezoneOffsetMinutes=`, `GET /babies/:id/timeline`, `GET /auth/me`, `GET /babies/:id` |
+| Nursery: lamp chain, monitor, sleep sessions | `POST /babies/:id/sleep/start`, `GET /babies/:id/sleep?limit=100`, `PATCH /sleep/:id` (ending a session, editing times or notes), `DELETE /sleep/:id`. A 409 `SLEEP_ALREADY_ACTIVE` triggers a quiet reload. |
+| Kitchen: bottle, bowl, feeding log | `POST/GET /babies/:id/feedings`, `PATCH/DELETE /feedings/:id` |
+| Pantry | `GET /nutrition/products`, `GET /nutrition/categories`, `GET /nutrition/search?q=`, `GET /nutrition/products/:id` (disclaimer shown verbatim), `GET /resources` |
+| Living room: ask | `POST /questions` (shows `safetyNotice`, and the urgent notice when `mayBeUrgent`), `POST /questions/:id/match-experts`, `GET /questions` |
+| Experts | `GET /experts?limit=100`, `GET /experts/categories`, `GET /experts/:id` (directory notice shown verbatim), `GET /experts/:id/contact-options` (opens phone, email or browser) |
+| Consultations | `POST /consultations` (shows `demoNotice`), `GET /consultations`, `PATCH /consultations/:id/status` (cancel) |
+| Changing area | `POST/GET /babies/:id/diapers`, `PATCH/DELETE /diapers/:id` (`both` ↔ `mixed`) |
+| Play corner: height ruler | `POST/GET /babies/:id/heights`, `PATCH/DELETE /heights/:id` |
+| Play corner: milestones | `POST/GET /babies/:id/milestones`, `DELETE /milestones/:id` |
+| Settings | `GET/PATCH /babies/:id`, `GET /health` |
 
-- **IDs**: the server assigns them on `POST`.
-- **Times**: ISO 8601 strings (UTC is fine). The UI formats them locally.
-- **`origin`**: the frontend stamps `'api'` on everything that comes back from your server. You don't need to send it.
-- **Sleep sessions**: a running session has `endedAt: null`. The UI works out elapsed time from `startedAt`, so the
-  server never needs a timer.
-- **`verification`** on products, experts, milestones and activities:
-  `{ status: 'unverified' | 'pending' | 'verified', note?, sources: [{ label, url? }] }`.
-  The UI only shows "Reviewed" when status is `verified`, and lists `sources` as links. Please only mark something
-  `verified` once a qualified person has checked it.
-- **Consultations**: the UI creates them with `status: 'pending'`. The real status should come from the server
-  (`confirmed` / `unavailable` / `cancelled`). The demo has "Simulate confirmation" buttons; they only appear in demo mode
-  and should never be needed with a real backend.
+## Stays on the phone (no backend endpoint yet)
 
-## Still mocked (no backend equivalent yet)
+- saved bookmarks
+- pediatrician question list
+- play-idea activities and the "tried" marks
+- reduce-motion and notification preferences
 
-- Authentication / accounts: there is no sign-in screen. The profile is a single document.
-- Sending questions to real people. Questions are only `recorded`.
-- Expert availability, booking, and consultation messaging.
-- Community replies, moderation queue (reports just set `reported: true`).
-- Notifications (the toggles are stored as preferences only).
-- All product, expert, milestone and activity content is fictional and `unverified`.
+## Gaps for the backend
 
-## Where to look
-
-- `src/services/index.ts`: the demo/API switch.
-- `src/services/mock/*`: seed data and the local storage implementation.
-- `src/state/*`: the stores and hooks the screens use (`useCollection`, `useCatalog`, `useDoc`).
+- **Nursing side (left/right/both):** no field exists, so the app doesn't ask for it.
+- **Saved items and pediatrician notes:** device-only until there's an endpoint.
+- **Experts:** there's no text search, so names are filtered on the phone. Category filtering uses the listing's `serviceCategory`.
+- **Consultations:** stored only, never delivered. The app says so on every consultation screen.
+- **Monitor vitals:** heart rate, breathing, room temperature and noise have no data source, so the tiles show "No sensor connected".
+- **Unused backend features:** login and registration, families and invitations, maternal tracking, baby health observations and account export/deletion are all implemented in the backend but have no UI yet.

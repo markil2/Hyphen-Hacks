@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AsyncBlock, Button, DemoNotice, EmptyState, Screen, Segmented, T, VerificationBadge } from '@/components/ui';
+import { AsyncBlock, Button, EmptyState, Screen, Segmented, T } from '@/components/ui';
 import { useSaved } from '@/features/saved/useSaved';
 import { ageInMonths, relativeTime } from '@/lib/time';
 import { stores, useCatalog, useCollection, useDoc } from '@/state';
@@ -12,7 +12,7 @@ export default function Activities() {
   const activities = useCatalog(stores.activities);
   const progress = useCollection(stores.activityProgress);
   const saved = useSaved('activity');
-  const baby = useDoc(stores.profile).value?.baby;
+  const baby = useDoc(stores.baby).value;
   const months = baby ? ageInMonths(baby.birthDate) : 3;
   const [view, setView] = useState<'age' | 'saved' | 'all'>('age');
 
@@ -58,7 +58,7 @@ export default function Activities() {
           ))}
         </View>
       </AsyncBlock>
-      <DemoNotice>Sample activity ideas for the demo; not yet reviewed by a professional. Always supervise play.</DemoNotice>
+      <T variant="caption">Sample ideas kept on this device; not reviewed by a professional. Always supervise play.</T>
     </Screen>
   );
 }
@@ -73,7 +73,6 @@ function ActivityCard({ activity, saved, onSave, tried, onTried, busy }: { activ
         <T variant="caption">About {activity.minutes} min</T>
       </View>
       <T>{activity.description}</T>
-      <VerificationBadge verification={activity.verification} />
       <View style={{ flexDirection: 'row', gap: space.xs, flexWrap: 'wrap', marginTop: 4 }}>
         <Button label={tried ? `Tried ${relativeTime(tried)}` : 'Mark as tried'} icon={tried ? 'check' : undefined} size="sm" variant={tried ? 'sage' : 'secondary'} onPress={onTried} disabled={busy} accessibilityHint={tried ? 'Tap to unmark' : undefined} />
         <Button label={saved ? 'Saved' : 'Save'} icon="bookmark" size="sm" variant="quiet" onPress={onSave} disabled={busy} accessibilityHint={saved ? 'Tap to remove from saved' : undefined} />

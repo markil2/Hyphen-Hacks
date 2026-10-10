@@ -29,7 +29,6 @@ export function feedingTitle(f: FeedingEntry) {
 export function feedingDetail(f: FeedingEntry) {
   const parts: string[] = [];
   if (f.kind === 'breast' && f.method === 'nursing') {
-    if (f.side) parts.push(f.side === 'both' ? 'both sides' : `${f.side} side`);
     if (f.durationMin) parts.push(`${f.durationMin} min`);
   }
   if ((f.kind === 'formula' || (f.kind === 'breast' && f.method === 'bottle')) && f.amountMl) parts.push(`${f.amountMl} ml`);

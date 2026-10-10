@@ -12,7 +12,7 @@ import { feedingDetail, feedingTitle, useFeedings } from '@/features/feeding/mod
 import { relativeTime, useNow } from '@/lib/time';
 import { space } from '@/theme';
 
-export default function Kitchen() {
+export function KitchenRoom({ index }: { index: number; active: boolean }) {
   const scene = useRef<SceneHandle>(null);
   const feedings = useFeedings();
   const now = useNow(60_000);
@@ -22,6 +22,7 @@ export default function Kitchen() {
 
   return (
     <RoomShell
+      index={index}
       sceneRef={scene}
       art={kitchenArt}
       focusY={-8}
@@ -33,7 +34,7 @@ export default function Kitchen() {
         <>
           <InteractiveObject area={KITCHEN.pantry} label="Pantry shelf" hint="Opens baby food and formula information" tag="Pantry" tagAt="inside" onPress={() => go(KITCHEN.pantry, '/kitchen/pantry')} />
           <InteractiveObject area={KITCHEN.bottle} label="Bottle" hint="Opens the milk feeding form" tag="Bottle" tagAt="below" onPress={() => go(KITCHEN.bottle, '/kitchen/bottle')} />
-          <InteractiveObject area={KITCHEN.bowl} label="Bowl and spoon" hint="Opens the solid food log" tag="Bowl · solids" onPress={() => go(KITCHEN.bowl, '/kitchen/bowl')} />
+          <InteractiveObject area={KITCHEN.bowl} label="Bowl and spoon" hint="Opens the solid food log" tag="Bowl · solids" tagAt="above" onPress={() => go(KITCHEN.bowl, '/kitchen/bowl')} />
         </>
       }
       sheet={
@@ -52,7 +53,7 @@ export default function Kitchen() {
             <T variant="caption" style={{ flex: 1 }}>
               {feedings.status === 'ready' ? `${feedings.milkToday.length} milk feed${feedings.milkToday.length === 1 ? '' : 's'} logged today` : ' '}
             </T>
-            <DemoBadge label="Demo log" />
+            <DemoBadge origin={feedings.items[0]?.origin ?? 'api'} label="Offline demo" />
           </View>
         </>
       }

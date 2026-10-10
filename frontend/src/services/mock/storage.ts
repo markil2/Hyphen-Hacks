@@ -3,14 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BaseRecord } from '@/types';
 import type { Catalog, DocRepo, NewRecord, Repo } from '../types';
 
-const PREFIX = 'nurture:demo:v1:';
+const PREFIX = 'nurture:demo:v2:';
 
-/** Demo-only switches, exposed in Profile → Demo tools so error states can be shown. */
+/** Demo-only switches, exposed in Settings → Demo tools so error states can be shown. */
 export const demoFlags = { failNextRequest: false };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function simulateNetwork() {
+export async function simulateNetwork() {
   await wait(120 + Math.random() * 160);
   if (demoFlags.failNextRequest) {
     demoFlags.failNextRequest = false;

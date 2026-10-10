@@ -2,117 +2,88 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, ChipRow, DemoNotice, EmptyState, ListRow, LoadingState, Panel, Screen, T, TextField } from '@/components/ui';
-import { ExpertInitials, topicLabel } from '@/features/support/ExpertCard';
-import { newId } from '@/services/mock/storage';
-import { slotLabel } from '@/lib/time';
-import { stores, useCatalog, useCollection } from '@/state';
+import { Button, ChipRow, EmptyState, LoadingState, Notice, Screen, T, TextField } from '@/components/ui';
+import { ExpertInitials } from '@/features/support/ExpertCard';
+import { remote } from '@/services';
+import { stores, useCatalog } from '@/state';
 import { messageOf } from '@/state/store';
 import { colors, space } from '@/theme';
-import type { Expert, SupportTopic } from '@/types';
 
-const methodLabel = { chat: 'Messages', video: 'Video call', phone: 'Phone call' } as const;
-
-/** Request → pick a sample time → review → submit. Nothing is sent in the demo. */
+/** Write a consultation request. The backend stores it; it is not delivered to anyone yet. */
 export default function RequestConsultation() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const experts = useCatalog(stores.experts);
+  const questions = useCatalog(stores.questions);
+  const consultations = useCatalog(stores.consultations);
   const expert = experts.items.find((e) => e.id === id);
-  if (!expert) return <Screen back>{experts.status === 'ready' ? <EmptyState title="Profile not found" /> : <LoadingState />}</Screen>;
-  return <Flow expert={expert} />;
-}
-
-function Flow({ expert }: { expert: Expert }) {
-  const consultations = useCollection(stores.consultations);
-  const [step, setStep] = useState<'details' | 'review'>('details');
-  const [topic, setTopic] = useState<SupportTopic>(expert.topics[0]);
-  const [method, setMethod] = useState(expert.contactMethods[0]);
-  const [slot, setSlot] = useState<string | null>(null);
-  const [note, setNote] = useState('');
+  const [message, setMessage] = useState('');
+  const [questionId, setQuestionId] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (!expert) return <Screen back>{experts.status === 'ready' ? <EmptyState title="Profile not found" /> : <LoadingState />}</Screen>;
+
+  const tooShort = message.trim().length < 10;
+
   const submit = async () => {
-    if (!slot) return;
+    setTouched(true);
+    if (tooShort || sending) return;
+    setSending(true);
     setError(null);
     try {
-      const now = new Date().toISOString();
-      const c = await consultations.create(
-        {
-          expertId: expert.id,
-          slot,
-          method,
-          topic,
-          note: note.trim(),
-          status: 'pending',
-          createdAt: now,
-          messages: [
-            {
-              id: newId(),
-              from: 'system',
-              text: `Request recorded in the demo. Nothing has been sent to ${expert.name}, who is a fictional sample profile.`,
-              at: now,
-            },
-          ],
-        },
-        'request',
-      );
-      router.replace({ pathname: '/support/consultation/[id]', params: { id: c.id } });
+      const { consultation, notice } = await remote.support.requestConsultation({
+        expertId: expert.id,
+        message: message.trim(),
+        ...(questionId ? { questionId } : {}),
+      });
+      consultations.upsert(consultation);
+      router.replace({ pathname: '/support/consultation/[id]', params: { id: consultation.id, notice } });
     } catch (e) {
       setError(messageOf(e));
+    } finally {
+      setSending(false);
     }
   };
-
-  const header = (
-    <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
-      <ExpertInitials expert={expert} size={44} />
-      <View>
-        <T variant="bodyStrong">{expert.name}</T>
-        <T variant="small">{expert.role} · sample profile</T>
-      </View>
-    </View>
-  );
-
-  if (step === 'review') {
-    return (
-      <Screen
-        back={() => setStep('details')}
-        title="Review request"
-        footer={
-          <View style={{ gap: space.xs }}>
-            {error ? (
-              <T variant="small" style={{ color: colors.danger }} accessibilityRole="alert">
-                {error}
-              </T>
-            ) : null}
-            <Button label="Send request (demo)" onPress={submit} loading={consultations.isBusy('request')} size="lg" full />
-          </View>
-        }>
-        {header}
-        <Panel>
-          <ListRow title="Topic" meta={topicLabel[topic]} />
-          <ListRow title="How" meta={methodLabel[method]} />
-          <ListRow title="When" meta={slot ? slotLabel(slot) : '—'} />
-          <ListRow title="Your note" subtitle={note.trim() || 'No note'} last />
-        </Panel>
-        <DemoNotice>This is a demo: the request will be saved on this device only and will not reach anyone.</DemoNotice>
-        <Button label="Change details" variant="secondary" onPress={() => setStep('details')} />
-      </Screen>
-    );
-  }
 
   return (
     <Screen
       back
-      title="Request a consultation"
-      footer={<Button label="Review request" onPress={() => setStep('review')} disabled={!slot} size="lg" full accessibilityHint={slot ? undefined : 'Choose a time first'} />}>
-      {header}
-      <ChipRow label="Topic" value={topic} onChange={setTopic} options={expert.topics.map((t) => ({ value: t, label: topicLabel[t] }))} />
-      <ChipRow label="How would you like to talk?" value={method} onChange={setMethod} options={expert.contactMethods.map((m) => ({ value: m, label: methodLabel[m] }))} />
-      <View style={{ gap: 6 }}>
-        <ChipRow label="Choose a sample time" value={slot} onChange={setSlot} options={expert.availability.map((s) => ({ value: s, label: slotLabel(s) }))} />
-        <T variant="caption">Demo times only — not anyone’s real availability.</T>
+      title="Consultation request"
+      footer={
+        <View style={{ gap: space.xs }}>
+          {error ? (
+            <T variant="small" style={{ color: colors.danger }} accessibilityRole="alert">
+              {error}
+            </T>
+          ) : null}
+          <Button label="Save request" onPress={submit} loading={sending} size="lg" full />
+        </View>
+      }>
+      <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
+        <ExpertInitials expert={expert} size={44} />
+        <View style={{ flex: 1 }}>
+          <T variant="bodyStrong">{expert.name}</T>
+          <T variant="small">{expert.specialty}</T>
+        </View>
       </View>
-      <TextField label="Anything they should know? (optional)" placeholder="A sentence or two is plenty" value={note} onChangeText={setNote} multiline />
+      <Notice tone="sand" text="Nurture can’t deliver requests to professionals yet. Your request is saved so you can see how this will work — no one will receive it." />
+      <TextField
+        label="What would you like help with?"
+        placeholder="A few sentences is plenty"
+        value={message}
+        onChangeText={setMessage}
+        multiline
+        error={touched && tooShort ? 'Write at least a sentence (10 characters or more).' : undefined}
+      />
+      {questions.items.length ? (
+        <ChipRow
+          label="Link a question you asked (optional)"
+          value={questionId}
+          onChange={(v) => setQuestionId(v === questionId ? null : v)}
+          options={questions.items.slice(0, 4).map((q) => ({ value: q.id, label: q.text.length > 38 ? `${q.text.slice(0, 36)}…` : q.text }))}
+        />
+      ) : null}
     </Screen>
   );
 }

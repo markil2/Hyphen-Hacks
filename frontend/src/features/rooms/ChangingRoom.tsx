@@ -16,7 +16,7 @@ import { colors, space } from '@/theme';
 import type { DiaperEntry, DiaperKind } from '@/types';
 
 /** One-tap diaper logging. Optional, and never interpreted. */
-export default function Changing() {
+export function ChangingRoom({ index }: { index: number; active: boolean }) {
   const scene = useRef<SceneHandle>(null);
   const diapers = useDiapers();
   const now = useNow(60_000);
@@ -35,6 +35,7 @@ export default function Changing() {
 
   return (
     <RoomShell
+      index={index}
       sceneRef={scene}
       art={changingArt}
       focusY={70}
@@ -84,7 +85,7 @@ export default function Changing() {
             <T variant="caption" style={{ flex: 1 }}>
               {diapers.status === 'ready' ? `${diapers.today.length} change${diapers.today.length === 1 ? '' : 's'} today · logs the current time` : ' '}
             </T>
-            <DemoBadge label="Demo log" />
+            <DemoBadge origin={diapers.items[0]?.origin ?? 'api'} label="Offline demo" />
           </View>
         </>
       }

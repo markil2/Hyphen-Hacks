@@ -34,6 +34,28 @@ const paths = {
   ),
   back: <Path d="M14.5 5.5 8 12l6.5 6.5" />,
   chevron: <Path d="M9.5 5.5 16 12l-6.5 6.5" />,
+  up: <Path d="M5.5 14.5 12 8l6.5 6.5" />,
+  down: <Path d="M5.5 9.5 12 16l6.5-6.5" />,
+  monitor: (
+    <>
+      <Rect x={3.5} y={5} width={17} height={12} rx={2} />
+      <Path d="M9 20.5h6M12 17v3.5" />
+      <Circle cx={12} cy={11} r={2.4} />
+    </>
+  ),
+  ruler: (
+    <>
+      <Rect x={8} y={2.5} width={8} height={19} rx={1.2} />
+      <Path d="M8 6.5h3M8 10h2M8 13.5h3M8 17h2" />
+    </>
+  ),
+  link: <Path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+  mail: (
+    <>
+      <Rect x={3.5} y={5.5} width={17} height={13} rx={1.6} />
+      <Path d="M4 7l8 6 8-6" />
+    </>
+  ),
   close: <Path d="M6 6l12 12M18 6 6 18" />,
   plus: <Path d="M12 5v14M5 12h14" />,
   check: <Path d="M5 12.5l4.5 4.5L19 7.5" />,

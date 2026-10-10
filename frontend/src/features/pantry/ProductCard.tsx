@@ -2,20 +2,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Ellipse, Path, Rect } from 'react-native-svg';
 
 import { Icon } from '@/components/icons';
-import { DemoBadge, T, VerificationBadge } from '@/components/ui';
+import { StatusBadge, T } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 import { colors, radius, space } from '@/theme';
-import type { Product, ProductCategory } from '@/types';
+import type { Product } from '@/types';
 
-export const categoryLabel: Record<ProductCategory, string> = {
-  formula: 'Formula',
-  'baby-food': 'Baby food',
-  nutrition: 'Nutrition info',
-};
+const LABELS: Record<string, string> = { formula: 'Formula', solids: 'Solids & baby food', 'baby-food': 'Baby food' };
+export const categoryLabel = (c: string) => LABELS[c] ?? c.replace(/[_-]/g, ' ').replace(/^\w/, (x) => x.toUpperCase());
 
 /** Placeholder artwork in the pantry's style until real product images are supplied. */
-export function ProductArt({ category, size = 64 }: { category: ProductCategory; size?: number }) {
-  const bg = category === 'formula' ? colors.blueWash : category === 'baby-food' ? colors.terracottaWash : colors.sageWash;
+export function ProductArt({ category, size = 64 }: { category: string; size?: number }) {
+  const bg = category === 'formula' ? colors.blueWash : category === 'solids' || category === 'baby-food' ? colors.terracottaWash : colors.sageWash;
   return (
     <View style={[styles.art, { width: size, height: size, backgroundColor: bg }]} aria-hidden>
       <Svg width={size * 0.62} height={size * 0.62} viewBox="0 0 40 40">
@@ -25,7 +22,7 @@ export function ProductArt({ category, size = 64 }: { category: ProductCategory;
             <Rect x={8} y={5} width={24} height={5} rx={2} fill="#A9B9C6" />
             <Rect x={13} y={17} width={14} height={9} rx={1} fill="#A9B9C6" opacity={0.6} />
           </>
-        ) : category === 'baby-food' ? (
+        ) : category === 'solids' || category === 'baby-food' ? (
           <>
             <Rect x={10} y={12} width={20} height={24} rx={5} fill="#F5F0E7" stroke="#8E5A45" strokeWidth={1} />
             <Rect x={12} y={20} width={16} height={14} rx={3} fill="#D8A783" />
@@ -47,7 +44,7 @@ export function ProductCard({ product, saved, onPress }: { product: Product; sav
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${product.name}, ${categoryLabel[product.category]}, sample listing, ${product.verification.status === 'verified' ? 'reviewed' : 'not verified'}${saved ? ', saved' : ''}`}
+      accessibilityLabel={`${product.name}, ${categoryLabel(product.category)}${product.isSample ? ', sample record' : ''}, ${product.expertReviewStatus.replace(/_/g, ' ')}${saved ? ', saved' : ''}`}
       onPress={() => {
         haptic.tap();
         onPress();
@@ -59,11 +56,11 @@ export function ProductCard({ product, saved, onPress }: { product: Product; sav
           {product.name}
         </T>
         <T variant="small" numberOfLines={2}>
-          {product.summary}
+          {product.description}
         </T>
         <View style={styles.badges}>
-          <DemoBadge origin={product.origin} label="Example" />
-          <VerificationBadge verification={product.verification} />
+          {product.isSample ? <T variant="caption" style={styles.sample}>Sample record</T> : null}
+          <StatusBadge status={product.expertReviewStatus} />
         </View>
       </View>
       {saved ? <Icon name="bookmark" size={18} fill={colors.terracotta} color={colors.terracottaDeep} /> : null}
@@ -81,5 +78,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.lineStrong,
     alignItems: 'flex-start',
   },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2, alignItems: 'center' },
+  sample: { color: colors.blueDeep },
 });

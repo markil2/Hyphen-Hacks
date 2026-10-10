@@ -1,4 +1,4 @@
-import { services } from '@/services';
+import { local, remote } from '@/services';
 import { resetDemoData } from '@/services/mock/storage';
 import type { BaseRecord } from '@/types';
 
@@ -9,26 +9,48 @@ const newestBy =
   (a: T, b: T) =>
     field(b).localeCompare(field(a));
 
+const readOnly = <T>(get: () => Promise<T>) => ({
+  get,
+  save: async (): Promise<T> => {
+    throw new Error('Read-only');
+  },
+});
+
+const afterCare = () => refreshSummaries();
+
 /** App-wide stores. Screens subscribe with useCollection / useCatalog / useDoc. */
 export const stores = {
-  profile: createDoc(services.profile),
-  sleep: createCollection(services.sleep, newestBy((s) => s.startedAt)),
-  feedings: createCollection(services.feedings, newestBy((f) => f.at)),
-  diapers: createCollection(services.diapers, newestBy((d) => d.at)),
-  questions: createCollection(services.questions, newestBy((q) => q.createdAt)),
-  consultations: createCollection(services.consultations, newestBy((c) => c.createdAt)),
-  saved: createCollection(services.saved, newestBy((s) => s.savedAt)),
-  pediatricianNotes: createCollection(services.pediatricianNotes, newestBy((n) => n.createdAt)),
-  activityProgress: createCollection(services.activityProgress, newestBy((p) => p.triedAt)),
-  posts: createCollection(services.posts, newestBy((p) => p.createdAt)),
-  products: createCatalog(services.products),
-  experts: createCatalog(services.experts),
-  milestones: createCatalog(services.milestones),
-  activities: createCatalog(services.activities),
-  groups: createCatalog(services.groups),
+  // From the Nurture backend (or the offline demo when no API URL is set)
+  baby: createDoc(remote.baby),
+  account: createDoc(readOnly(remote.account.get)),
+  dashboard: createDoc(readOnly(remote.dashboard.summary)),
+  timeline: createDoc(readOnly(remote.dashboard.timeline)),
+  sleep: createCollection(remote.sleep, newestBy((s) => s.startedAt), afterCare),
+  feedings: createCollection(remote.feedings, newestBy((f) => f.at), afterCare),
+  diapers: createCollection(remote.diapers, newestBy((d) => d.at), afterCare),
+  heights: createCollection(remote.heights, newestBy((h) => h.measuredAt), afterCare),
+  milestones: createCollection(remote.milestones, newestBy((m) => m.achievedAt), afterCare),
+  questions: createCatalog(remote.questions),
+  consultations: createCatalog(remote.consultations),
+  experts: createCatalog(remote.experts),
+  products: createCatalog(remote.products),
+  resources: createCatalog(remote.resources),
+
+  // Device-only
+  preferences: createDoc(local.preferences),
+  saved: createCollection(local.saved, newestBy((s) => s.savedAt)),
+  pediatricianNotes: createCollection(local.pediatricianNotes, newestBy((n) => n.createdAt)),
+  activityProgress: createCollection(local.activityProgress, newestBy((p) => p.triedAt)),
+  activities: createCatalog(local.activities),
 };
 
-/** Wipes demo records on this device and reloads the seeded sample data. */
+/** After a care log changes, the home summary and timeline are stale. */
+export function refreshSummaries() {
+  stores.dashboard.load(true);
+  stores.timeline.load(true);
+}
+
+/** Wipes device-stored demo records and reloads everything. */
 export async function restoreSampleData() {
   await resetDemoData();
   await Promise.all(

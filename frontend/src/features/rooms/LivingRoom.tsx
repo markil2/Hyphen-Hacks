@@ -12,18 +12,18 @@ import { UrgentHelp } from '@/features/support/UrgentHelp';
 import { space } from '@/theme';
 
 /** The living room: where parents bring questions and find people who can help. */
-export default function Support() {
+export function LivingRoom({ index }: { index: number; active: boolean }) {
   const scene = useRef<SceneHandle>(null);
   const go = (area: Rect, path: '/support/ask' | '/support/experts' | '/support/questions') =>
     scene.current?.focusOn(area, () => router.push(path));
 
   return (
     <RoomShell
+      index={index}
       sceneRef={scene}
       art={livingArt}
       focusY={70}
       zoom={1.06}
-      showBack={false}
       title="Living room"
       subtitle="Questions & expert support"
       description="Living room: a soft blue sofa with cushions, a side table with a phone, a floor lamp, and a bookshelf."

@@ -1,37 +1,65 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
-import { DemoBadge, T, VerificationBadge } from '@/components/ui';
+import { StatusBadge, T } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 import { colors, fonts, space } from '@/theme';
-import type { Expert, SupportTopic } from '@/types';
+import type { Expert, QuestionCategory } from '@/types';
 
-export const topicLabel: Record<SupportTopic, string> = {
-  sleep: 'Sleep',
+export const categoryLabel: Record<QuestionCategory, string> = {
   feeding: 'Feeding',
-  soothing: 'Soothing',
+  sleep: 'Sleep',
   development: 'Development',
-  recovery: 'Parent wellbeing',
-  other: 'Something else',
+  health: 'Health',
+  general: 'Something else',
 };
 
-const toneBg = { sage: colors.sageWash, blue: colors.blueWash, terracotta: colors.terracottaWash, wood: colors.creamSoft };
-const toneFg = { sage: colors.sageDeep, blue: colors.blueDeep, terracotta: colors.terracottaDeep, wood: colors.woodDark };
+const SERVICE_LABELS: Record<string, string> = {
+  lactation: 'Lactation',
+  nutrition: 'Nutrition',
+  sleep: 'Sleep',
+  newborn_care: 'Newborn care',
+  perinatal_mental_health: 'Parent mental health',
+  postpartum_doula: 'Postpartum doula',
+  pediatric_therapy: 'Pediatric therapy',
+  occupational_therapy: 'Occupational therapy',
+  early_intervention: 'Early intervention',
+  pediatrics: 'Pediatrics',
+  parent_support: 'Parent support',
+};
+
+export const serviceLabel = (s: string) => SERVICE_LABELS[s] ?? s.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+
+const tones = [
+  { bg: colors.sageWash, fg: colors.sageDeep },
+  { bg: colors.blueWash, fg: colors.blueDeep },
+  { bg: colors.terracottaWash, fg: colors.terracottaDeep },
+  { bg: colors.creamSoft, fg: colors.woodDark },
+];
+
+const initialsOf = (name: string) =>
+  name
+    .replace(/^Dr\.?\s+/i, '')
+    .split(/\s+/)
+    .filter((w) => /^[A-Za-z]/.test(w))
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
 
 export function ExpertInitials({ expert, size = 52 }: { expert: Expert; size?: number }) {
+  const tone = tones[[...expert.name].reduce((n, c) => n + c.charCodeAt(0), 0) % tones.length];
   return (
-    <View style={[styles.initials, { width: size, height: size, borderRadius: size / 2, backgroundColor: toneBg[expert.tone] }]} aria-hidden>
-      <T style={{ fontFamily: fonts.display, fontSize: size * 0.36, color: toneFg[expert.tone] }}>{expert.initials}</T>
+    <View style={[styles.initials, { width: size, height: size, borderRadius: size / 2, backgroundColor: tone.bg }]} aria-hidden>
+      <T style={{ fontFamily: fonts.display, fontSize: size * 0.34, color: tone.fg, paddingHorizontal: 3 }} numberOfLines={1}>{initialsOf(expert.name)}</T>
     </View>
   );
 }
 
 export function ExpertCard({ expert, onPress, compact = false }: { expert: Expert; onPress: () => void; compact?: boolean }) {
-  const available = expert.availability.length > 0;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${expert.name}, ${expert.role}. Sample profile, fictional. ${available ? 'Has sample times' : 'Not taking requests'}`}
+      accessibilityLabel={`${expert.name}, ${expert.specialty}${expert.isDemo ? '. Fictional demo profile' : '. External listing, not verified by Nurture'}`}
       onPress={() => {
         haptic.tap();
         onPress();
@@ -40,15 +68,14 @@ export function ExpertCard({ expert, onPress, compact = false }: { expert: Exper
       <ExpertInitials expert={expert} size={compact ? 44 : 52} />
       <View style={{ flex: 1, gap: 3 }}>
         <T variant="bodyStrong">{expert.name}</T>
-        <T variant="small">{expert.role}</T>
-        {!compact ? (
-          <T variant="small" numberOfLines={2} style={{ color: colors.ink3 }}>
-            {expert.specialty}
+        <T variant="small">{expert.specialty}</T>
+        {!compact && expert.organization && expert.organization !== expert.name ? (
+          <T variant="small" numberOfLines={1} style={{ color: colors.ink3 }}>
+            {expert.organization}
           </T>
         ) : null}
         <View style={styles.badges}>
-          <DemoBadge origin={expert.origin} label="Sample profile" />
-          {!compact ? <VerificationBadge verification={expert.verification} /> : null}
+          <StatusBadge status={expert.isDemo ? 'demo_not_verified' : expert.verificationStatus} />
         </View>
       </View>
       <Icon name="chevron" size={18} color={colors.ink3} />

@@ -7,14 +7,15 @@
 
 Each person works only in their own folder on their own branch. Merge into `main` with a pull request.
 
-## Frontend
+## Running the app
 
 ```bash
-cd frontend
-npm install
-npx expo start
+# backend (first time: cp .env.example .env, npm install, npm run prisma:generate, npm run db:deploy, npm run db:seed)
+cd backend && npm run dev
+
+# frontend (first time: cp .env.example .env, npm install)
+cd frontend && npx expo start
 ```
 
-Scan the QR code with Expo Go on your phone, or press `w` to open it in a browser. The app runs on sample data until
-`EXPO_PUBLIC_API_URL` is set in `frontend/.env` (copy `frontend/.env.example`). Backend notes:
-[frontend/docs/BACKEND_INTEGRATION.md](frontend/docs/BACKEND_INTEGRATION.md).
+Press `i` for the iOS simulator, or scan the QR code with Expo Go (use your computer's LAN IP in `frontend/.env` on a real phone).
+Details: [frontend/docs/BACKEND_INTEGRATION.md](frontend/docs/BACKEND_INTEGRATION.md).

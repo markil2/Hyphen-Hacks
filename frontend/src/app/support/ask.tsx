@@ -4,69 +4,100 @@ import { View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Icon } from '@/components/icons';
-import { Button, ChipRow, DemoNotice, Panel, Screen, Section, T, TextField } from '@/components/ui';
-import { ExpertCard, topicLabel } from '@/features/support/ExpertCard';
+import { Button, ChipRow, LoadingState, Notice, Panel, Screen, Section, SourceLink, T, TextField } from '@/components/ui';
+import { categoryLabel, ExpertCard } from '@/features/support/ExpertCard';
 import { UrgentHelp } from '@/features/support/UrgentHelp';
-import { stores, useCatalog, useCollection } from '@/state';
+import { remote } from '@/services';
+import { stores, useCatalog } from '@/state';
 import { messageOf } from '@/state/store';
 import { colors, space } from '@/theme';
-import type { Question, SupportTopic } from '@/types';
+import type { ExpertMatch, QuestionCategory, QuestionReceipt } from '@/types';
 
-const TOPICS: SupportTopic[] = ['sleep', 'feeding', 'soothing', 'development', 'recovery', 'other'];
+const CATEGORIES: QuestionCategory[] = ['sleep', 'feeding', 'development', 'health', 'general'];
 
-/** Ask in plain language. In the demo, the question is recorded on this device — never sent. */
+/** Ask in plain language. The question is saved to Nurture and matched to kinds of professionals. */
 export default function Ask() {
-  const questions = useCollection(stores.questions);
-  const experts = useCatalog(stores.experts);
+  const questions = useCatalog(stores.questions);
   const [text, setText] = useState('');
-  const [topic, setTopic] = useState<SupportTopic | null>(null);
+  const [category, setCategory] = useState<QuestionCategory | null>(null);
   const [touched, setTouched] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recorded, setRecorded] = useState<Question | null>(null);
+  const [receipt, setReceipt] = useState<QuestionReceipt | null>(null);
+  const [match, setMatch] = useState<ExpertMatch | null>(null);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
-  const tooShort = text.trim().length < 8;
+  const tooShort = text.trim().length < 10;
 
-  const submit = async () => {
-    setTouched(true);
-    if (tooShort || !topic) return;
-    setError(null);
+  const loadMatch = async (questionId: string) => {
+    setMatchError(null);
     try {
-      const q = await questions.create({ text: text.trim(), topic, createdAt: new Date().toISOString(), status: 'recorded' }, 'ask');
-      setRecorded(q);
+      setMatch(await remote.support.match(questionId));
     } catch (e) {
-      setError(messageOf(e));
+      setMatchError(messageOf(e));
     }
   };
 
-  if (recorded) {
-    const matches = experts.items.filter((e) => e.topics.includes(recorded.topic));
+  const submit = async () => {
+    setTouched(true);
+    if (tooShort || !category || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const r = await remote.support.ask(text.trim(), category);
+      questions.upsert(r.question);
+      setReceipt(r);
+      loadMatch(r.question.id);
+    } catch (e) {
+      setError(messageOf(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (receipt) {
     return (
-      <Screen back title="Question recorded">
+      <Screen back title="Question saved">
         <Animated.View entering={FadeIn.duration(260)} style={{ gap: space.lg }}>
+          {receipt.mayBeUrgent ? <Notice tone="danger" icon="alert" text={receipt.safetyNotice} /> : null}
           <Panel tone="white">
             <View style={{ flexDirection: 'row', gap: space.xs, alignItems: 'center' }}>
               <Icon name="check" color={colors.sageDeep} strokeWidth={2.2} />
-              <T variant="smallStrong">Saved in the demo — not sent to anyone</T>
+              <T variant="smallStrong">Saved to Nurture — not sent to a professional</T>
             </View>
-            <T variant="lead">“{recorded.text}”</T>
-            <T variant="caption">Topic: {topicLabel[recorded.topic]}</T>
+            <T variant="lead">“{receipt.question.text}”</T>
+            <T variant="caption">Topic: {categoryLabel[receipt.question.category]}</T>
           </Panel>
-          <DemoNotice>
-            When the backend is connected, this is where you’ll see that your question reached a real person. Until then nothing
-            leaves this device.
-          </DemoNotice>
+          {!receipt.mayBeUrgent ? <Notice tone="sand" text={receipt.safetyNotice} /> : null}
 
-          <Section title="Next steps">
-            <T>
-              {recorded.topic === 'other'
-                ? 'People who help with general questions are listed below.'
-                : `People who usually help with ${topicLabel[recorded.topic].toLowerCase()} questions are listed below.`}{' '}
-              You can request a consultation with any of them.
-            </T>
-            {matches.length ? (
-              matches.map((e) => <ExpertCard key={e.id} expert={e} onPress={() => router.push({ pathname: '/support/expert/[id]', params: { id: e.id } })} />)
+          <Section title="Who usually helps with this">
+            {matchError ? (
+              <View style={{ gap: space.xs }}>
+                <T variant="small" style={{ color: colors.danger }}>
+                  {matchError}
+                </T>
+                <Button label="Try again" size="sm" variant="secondary" onPress={() => loadMatch(receipt.question.id)} />
+              </View>
+            ) : !match ? (
+              <LoadingState label="Finding the right kinds of support" />
             ) : (
-              <T variant="small">No sample profiles match this topic yet.</T>
+              <>
+                <T variant="small">Suggested: {match.recommendedSpecialties.join(', ')}. This is simple topic matching, not a diagnosis.</T>
+                {match.experts.map((e) => (
+                  <ExpertCard key={e.id} expert={e} onPress={() => router.push({ pathname: '/support/expert/[id]', params: { id: e.id } })} />
+                ))}
+                {match.resources.length ? (
+                  <View style={{ gap: space.xs, marginTop: space.sm }}>
+                    <T variant="smallStrong">Reading from trusted sources</T>
+                    {match.resources.map((r) => (
+                      <View key={r.id} style={{ gap: 2 }}>
+                        <T variant="bodyStrong">{r.title}</T>
+                        <SourceLink url={r.sourceUrl} label={r.sourceName} />
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </>
             )}
           </Section>
 
@@ -76,9 +107,10 @@ export default function Ask() {
               label="Ask another question"
               variant="quiet"
               onPress={() => {
-                setRecorded(null);
+                setReceipt(null);
+                setMatch(null);
                 setText('');
-                setTopic(null);
+                setCategory(null);
                 setTouched(false);
               }}
             />
@@ -100,7 +132,7 @@ export default function Ask() {
               {error}
             </T>
           ) : null}
-          <Button label="Record my question" onPress={submit} loading={questions.isBusy('ask')} size="lg" full />
+          <Button label="Save my question" onPress={submit} loading={sending} size="lg" full />
         </View>
       }>
       <UrgentHelp />
@@ -110,19 +142,18 @@ export default function Ask() {
         value={text}
         onChangeText={setText}
         multiline
-        error={touched && tooShort ? 'Add a little more detail so the right person can help.' : undefined}
+        maxLength={3000}
+        error={touched && tooShort ? 'Add a little more detail (at least 10 characters).' : undefined}
       />
       <View style={{ gap: 6 }}>
-        <ChipRow label="Topic" value={topic} onChange={setTopic} options={TOPICS.map((t) => ({ value: t, label: topicLabel[t] }))} />
-        {touched && !topic ? (
+        <ChipRow label="Topic" value={category} onChange={setCategory} options={CATEGORIES.map((c) => ({ value: c, label: categoryLabel[c] }))} />
+        {touched && !category ? (
           <T variant="small" style={{ color: colors.danger }}>
-            Pick the closest topic — it helps match you with the right kind of expert.
+            Pick the closest topic — it decides which kinds of professionals are suggested.
           </T>
         ) : null}
       </View>
-      <T variant="caption">
-        Nurture connects you with people; it doesn’t diagnose. Any answer you receive is not a substitute for your own clinician.
-      </T>
+      <T variant="caption">Nurture suggests kinds of support; it doesn’t diagnose, and your question isn’t sent to anyone yet.</T>
     </Screen>
   );
 }

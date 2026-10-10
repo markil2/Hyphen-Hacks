@@ -7,23 +7,23 @@ import type { ConsultationStatus } from '@/types';
 
 export const statusCopy: Record<ConsultationStatus, { label: string; body: string; icon: IconName; fg: string; bg: string }> = {
   pending: {
-    label: 'Pending (demo)',
-    body: 'Recorded on this device. In the real app you’d see this change once the expert responds.',
+    label: 'Saved, not sent',
+    body: 'Your request is stored in Nurture. It has not been sent to the professional — Nurture can’t deliver requests yet.',
     icon: 'clock',
     fg: colors.woodDark,
     bg: colors.creamSoft,
   },
-  confirmed: {
-    label: 'Confirmed (demo)',
-    body: 'Marked as confirmed using the demo controls. No real appointment exists.',
+  accepted: {
+    label: 'Accepted',
+    body: 'Marked as accepted.',
     icon: 'check',
     fg: colors.sageDeep,
     bg: colors.sageWash,
   },
-  unavailable: {
-    label: 'Unavailable (demo)',
-    body: 'This time isn’t available. You could pick another time or another expert.',
-    icon: 'info',
+  completed: {
+    label: 'Completed',
+    body: 'Marked as completed.',
+    icon: 'check',
     fg: colors.blueDeep,
     bg: colors.blueWash,
   },

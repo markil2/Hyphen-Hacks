@@ -1,6 +1,5 @@
 import { forwardRef, ReactNode, useImperativeHandle, useState } from 'react';
 import { LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   SensorType,
   SharedValue,
@@ -8,7 +7,6 @@ import Animated, {
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs } from 'react-native-svg';
@@ -45,7 +43,7 @@ export interface SceneHandle {
 
 const MAX_TILT = 9;
 
-/** Gravity-based tilt on devices; on the web, a gentle drag stands in for it. */
+/** Gravity-based tilt on devices; still on the web. Swipes belong to the room pager. */
 const useTilt: () => { x: SharedValue<number>; y: SharedValue<number> } =
   Platform.OS === 'web'
     ? () => ({ x: useSharedValue(0), y: useSharedValue(0) })
@@ -121,18 +119,6 @@ export const RoomScene = forwardRef<
     [size.w, size.h, calm, baseX, baseY, stageW, viewH, s],
   );
 
-  const pan = Gesture.Pan()
-    .enabled(!calm)
-    .minDistance(10)
-    .onUpdate((e) => {
-      drag.x.value = Math.max(-1, Math.min(1, e.translationX / 160));
-      drag.y.value = Math.max(-1, Math.min(1, e.translationY / 220));
-    })
-    .onEnd(() => {
-      drag.x.value = withSpring(0, { damping: 18 });
-      drag.y.value = withSpring(0, { damping: 18 });
-    });
-
   const cameraStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: cam.tx.value }, { translateY: cam.ty.value }, { scale: cam.k.value }],
   }));
@@ -146,8 +132,7 @@ export const RoomScene = forwardRef<
     <View style={[styles.viewport, { backgroundColor: art.floor }]} onLayout={onLayout}>
       {baseY > 0 ? <View style={[styles.wallFill, { height: baseY + 2, backgroundColor: art.wall }]} /> : null}
       {size.w > 0 ? (
-        <GestureDetector gesture={pan}>
-          <Animated.View
+        <Animated.View
             accessible={false}
             style={[{ width: stageW, height: viewH, top: baseY, left: baseX }, cameraStyle]}>
             <View
@@ -178,8 +163,7 @@ export const RoomScene = forwardRef<
                 {children}
               </ParallaxLayer>
             </StageContext.Provider>
-          </Animated.View>
-        </GestureDetector>
+        </Animated.View>
       ) : null}
     </View>
   );

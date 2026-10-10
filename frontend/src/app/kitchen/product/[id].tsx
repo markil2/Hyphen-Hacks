@@ -1,31 +1,55 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, DemoBadge, EmptyState, LoadingState, Panel, Screen, Section, SourceList, T, TextField, VerificationBadge } from '@/components/ui';
+import { Button, ErrorState, LoadingState, Notice, Panel, Screen, Section, SourceLink, StatusBadge, T, TextField } from '@/components/ui';
 import { categoryLabel, ProductArt } from '@/features/pantry/ProductCard';
 import { useSaved } from '@/features/saved/useSaved';
-import { stores, useCatalog, useCollection } from '@/state';
+import { remote } from '@/services';
+import { stores, useCollection } from '@/state';
 import { messageOf } from '@/state/store';
 import { colors, space } from '@/theme';
+import type { Product } from '@/types';
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const products = useCatalog(stores.products);
-  const product = products.items.find((p) => p.id === id);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [disclaimer, setDisclaimer] = useState('');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadError, setLoadError] = useState<string>();
   const saved = useSaved('product');
   const notes = useCollection(stores.pediatricianNotes);
   const [question, setQuestion] = useState('');
   const [added, setAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!product) {
-    return (
-      <Screen back title="Product">
-        {products.status === 'ready' ? <EmptyState title="This listing isn’t available" /> : <LoadingState />}
-      </Screen>
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let live = true;
+    remote.catalog.productDetail(id).then(
+      (res) => {
+        if (!live) return;
+        setProduct(res.product);
+        setDisclaimer(res.disclaimer);
+        setStatus('ready');
+      },
+      (e) => {
+        if (!live) return;
+        setLoadError(messageOf(e));
+        setStatus('error');
+      },
     );
-  }
+    return () => {
+      live = false;
+    };
+  }, [id, attempt]);
+  const retry = () => {
+    setStatus('loading');
+    setAttempt((n) => n + 1);
+  };
+
+  if (status === 'loading') return <Screen back><LoadingState /></Screen>;
+  if (status === 'error' || !product) return <Screen back><ErrorState message={loadError} onRetry={retry} /></Screen>;
 
   const isSaved = saved.isSaved(product.id);
 
@@ -44,10 +68,10 @@ export default function ProductDetail() {
   return (
     <Screen back>
       <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'center' }}>
-        <ProductArt category={product.category} size={88} />
+        <ProductArt category={product.category} size={84} />
         <View style={{ flex: 1, gap: 4 }}>
           <T variant="caption">
-            {categoryLabel[product.category]} · {product.brand}
+            {categoryLabel(product.category)} · {product.brand}
           </T>
           <T variant="title" accessibilityRole="header">
             {product.name}
@@ -55,16 +79,26 @@ export default function ProductDetail() {
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-        <DemoBadge origin={product.origin} label="Example listing" />
-        <VerificationBadge verification={product.verification} />
+      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {product.isSample ? <T variant="caption" style={{ color: colors.blueDeep }}>Sample record</T> : null}
+        <StatusBadge status={product.expertReviewStatus} />
       </View>
 
-      <T variant="lead">{product.summary}</T>
-      {product.details.map((d) => (
-        <T key={d}>{d}</T>
-      ))}
-      {product.ageRange ? <T variant="small">Age range shown on listing: {product.ageRange}</T> : null}
+      {/* The backend asks clients to show this alongside product details. */}
+      <Notice tone="sand" text={disclaimer} />
+
+      <T>{product.description}</T>
+
+      <Section title="Details">
+        <Panel>
+          <T variant="smallStrong">Ingredients</T>
+          <T variant="small">{product.ingredients}</T>
+          <T variant="smallStrong">Age guidance</T>
+          <T variant="small">{product.ageGuidance}</T>
+          <T variant="smallStrong">Source</T>
+          <SourceLink url={product.sourceUrl} />
+        </Panel>
+      </Section>
 
       <Button
         label={isSaved ? 'Saved — tap to remove' : 'Save to my list'}
@@ -73,15 +107,6 @@ export default function ProductDetail() {
         loading={saved.isToggling(product.id)}
         onPress={() => saved.toggle({ kind: 'product', refId: product.id, title: product.name })}
       />
-
-      <Section title="Sources & review">
-        <Panel>
-          <SourceList verification={product.verification} />
-          <T variant="caption">
-            An informational listing is not an expert recommendation. No product is right for every baby.
-          </T>
-        </Panel>
-      </Section>
 
       <Section title="Ask your pediatrician">
         <TextField
@@ -98,7 +123,7 @@ export default function ProductDetail() {
         <Button label="Add question" variant="secondary" icon="plus" onPress={addQuestion} disabled={!question.trim()} loading={notes.isBusy('create:pedi')} />
         {added ? (
           <T variant="small" style={{ color: colors.sageDeep }} accessibilityLiveRegion="polite">
-            Added to your pediatrician list (Pantry → Saved).
+            Added to your list (Pantry → Saved). Kept on this phone.
           </T>
         ) : null}
       </Section>

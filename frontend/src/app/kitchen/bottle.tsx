@@ -6,7 +6,7 @@ import { AmountStepper, Button, ChipRow, DemoNotice, goBack, Screen, T, TextFiel
 import { mlToOz, useFeedings } from '@/features/feeding/model';
 import { messageOf } from '@/state/store';
 import { colors, space } from '@/theme';
-import type { BreastSide, FeedingEntry } from '@/types';
+import type { FeedingEntry } from '@/types';
 
 type Method = 'nursing' | 'pumped' | 'formula';
 
@@ -33,7 +33,6 @@ function Form({ existing }: { existing?: FeedingEntry }) {
   const feedings = useFeedings();
   const [method, setMethod] = useState<Method>(methodOf(existing));
   const [at, setAt] = useState(existing?.at ?? new Date().toISOString());
-  const [side, setSide] = useState<BreastSide | null>(existing?.kind === 'breast' && existing.method === 'nursing' ? existing.side ?? null : null);
   const [duration, setDuration] = useState<number | undefined>(existing?.kind === 'breast' && existing.method === 'nursing' ? existing.durationMin : undefined);
   const [amount, setAmount] = useState<number | undefined>(
     existing && (existing.kind === 'formula' || (existing.kind === 'breast' && existing.method === 'bottle')) ? existing.amountMl : undefined,
@@ -47,7 +46,7 @@ function Form({ existing }: { existing?: FeedingEntry }) {
 
   const build = () => {
     const base = { at, notes: notes.trim() || undefined };
-    if (method === 'nursing') return { ...base, kind: 'breast' as const, method: 'nursing' as const, side: side ?? undefined, durationMin: duration };
+    if (method === 'nursing') return { ...base, kind: 'breast' as const, method: 'nursing' as const, durationMin: duration };
     if (method === 'pumped') return { ...base, kind: 'breast' as const, method: 'bottle' as const, amountMl: amount };
     return { ...base, kind: 'formula' as const, amountMl: amount };
   };
@@ -102,16 +101,6 @@ function Form({ existing }: { existing?: FeedingEntry }) {
       <TimeEditor label="Time" value={at} onChange={setAt} />
       {method === 'nursing' ? (
         <>
-          <ChipRow
-            label="Side (optional)"
-            value={side}
-            onChange={(v) => setSide(v === side ? null : v)}
-            options={[
-              { value: 'left', label: 'Left' },
-              { value: 'right', label: 'Right' },
-              { value: 'both', label: 'Both' },
-            ]}
-          />
           <AmountStepper label="Duration" unit="min" value={duration} onChange={setDuration} step={5} max={120} />
         </>
       ) : (
@@ -130,7 +119,7 @@ function Form({ existing }: { existing?: FeedingEntry }) {
           loading={feedings.isBusy(`remove:${existing.id}`)}
         />
       ) : null}
-      <DemoNotice>Demo mode: feedings are saved on this device only.</DemoNotice>
+      <DemoNotice>Offline demo: feedings are saved on this device only.</DemoNotice>
     </Screen>
   );
 }

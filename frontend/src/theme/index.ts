@@ -31,23 +31,24 @@ export const colors = {
   dangerWash: '#F0DCD5',
 } as const;
 
+/** Lora for warm, readable headings; Nunito Sans for friendly, rounded body text. */
 export const fonts = {
-  display: 'Newsreader_500Medium',
-  displayItalic: 'Newsreader_400Regular_Italic',
-  displayRegular: 'Newsreader_400Regular',
-  body: 'InstrumentSans_400Regular',
-  bodyMedium: 'InstrumentSans_500Medium',
-  bodySemibold: 'InstrumentSans_600SemiBold',
+  display: 'Lora_600SemiBold',
+  displayItalic: 'Lora_400Regular_Italic',
+  displayRegular: 'Lora_400Regular',
+  body: 'NunitoSans_400Regular',
+  bodyMedium: 'NunitoSans_600SemiBold',
+  bodySemibold: 'NunitoSans_700Bold',
 } as const;
 
 export const space = { xxs: 4, xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
 export const radius = { sm: 10, md: 16, lg: 24, xl: 32, pill: 999 } as const;
 
 export const type = {
-  hero: { fontFamily: fonts.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.6, color: colors.charcoal },
-  title: { fontFamily: fonts.display, fontSize: 26, lineHeight: 31, letterSpacing: -0.3, color: colors.charcoal },
+  hero: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.4, color: colors.charcoal },
+  title: { fontFamily: fonts.display, fontSize: 25, lineHeight: 31, letterSpacing: -0.2, color: colors.charcoal },
   heading: { fontFamily: fonts.display, fontSize: 20, lineHeight: 25, color: colors.charcoal },
-  lead: { fontFamily: fonts.displayRegular, fontSize: 18, lineHeight: 25, color: colors.ink2 },
+  lead: { fontFamily: fonts.body, fontSize: 17, lineHeight: 25, color: colors.ink2 },
   body: { fontFamily: fonts.body, fontSize: 16, lineHeight: 23, color: colors.charcoal },
   bodyStrong: { fontFamily: fonts.bodySemibold, fontSize: 16, lineHeight: 23, color: colors.charcoal },
   small: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.ink2 },

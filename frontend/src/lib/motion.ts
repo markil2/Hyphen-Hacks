@@ -6,8 +6,8 @@ import { useDoc } from '@/state/store';
 /** True when either the OS or the in-app preference asks for less motion. */
 export function useCalmMotion() {
   const system = useReducedMotion();
-  const { value } = useDoc(stores.profile);
-  return system || Boolean(value?.preferences.reduceMotion);
+  const { value } = useDoc(stores.preferences);
+  return system || Boolean(value?.reduceMotion);
 }
 
 /** Exponential ease-out: quick to respond, soft to settle. */

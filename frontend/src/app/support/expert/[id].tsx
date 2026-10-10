@@ -1,95 +1,113 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Linking, View } from 'react-native';
 
-import { Icon, IconName } from '@/components/icons';
-import { Button, DemoBadge, EmptyState, LoadingState, Panel, Screen, Section, SourceList, T, VerificationBadge } from '@/components/ui';
-import { ExpertInitials, topicLabel } from '@/features/support/ExpertCard';
-import { slotLabel } from '@/lib/time';
-import { stores, useCatalog } from '@/state';
-import { colors, space } from '@/theme';
+import { IconName } from '@/components/icons';
+import { Button, EmptyState, ErrorState, LoadingState, Notice, Panel, Screen, Section, SourceLink, StatusBadge, T } from '@/components/ui';
+import { ExpertInitials, serviceLabel } from '@/features/support/ExpertCard';
+import { remote } from '@/services';
+import { messageOf } from '@/state/store';
+import { space } from '@/theme';
+import type { ContactOptions, Expert } from '@/types';
 
-const methodInfo: Record<'chat' | 'video' | 'phone', { label: string; icon: IconName }> = {
-  chat: { label: 'Messages', icon: 'chat' },
-  video: { label: 'Video call', icon: 'video' },
-  phone: { label: 'Phone call', icon: 'call' },
+const AUDIENCE: Record<string, string> = { parent: 'Parents', baby_child: 'Babies & children', family: 'Whole family' };
+const CONTACT: Record<'phone' | 'email' | 'website', { label: string; icon: IconName; href: (v: string) => string }> = {
+  phone: { label: 'Call', icon: 'call', href: (v) => `tel:${v.replace(/[^\d+]/g, '')}` },
+  email: { label: 'Email', icon: 'mail', href: (v) => `mailto:${v}` },
+  website: { label: 'Website', icon: 'link', href: (v) => v },
 };
 
 export default function ExpertProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const experts = useCatalog(stores.experts);
-  const expert = experts.items.find((e) => e.id === id);
+  const [expert, setExpert] = useState<Expert | null>(null);
+  const [notice, setNotice] = useState('');
+  const [contact, setContact] = useState<ContactOptions | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [error, setError] = useState<string>();
 
-  if (!expert) {
-    return <Screen back>{experts.status === 'ready' ? <EmptyState title="Profile not found" /> : <LoadingState />}</Screen>;
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let live = true;
+    Promise.all([remote.support.expertDetail(id), remote.support.contactOptions(id)]).then(
+      ([detail, options]) => {
+        if (!live) return;
+        setExpert(detail.expert);
+        setNotice(detail.notice);
+        setContact(options);
+        setStatus('ready');
+      },
+      (e) => {
+        if (!live) return;
+        setError(messageOf(e));
+        setStatus('error');
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [id, attempt]);
+  const retry = () => {
+    setStatus('loading');
+    setAttempt((n) => n + 1);
+  };
+
+  if (status === 'loading') return <Screen back><LoadingState label="Loading profile" /></Screen>;
+  if (status === 'error' || !expert) {
+    return <Screen back>{error ? <ErrorState message={error} onRetry={retry} /> : <EmptyState title="Profile not found" />}</Screen>;
   }
 
-  const available = expert.availability.length > 0;
-
   return (
-    <Screen
-      back
-      footer={
-        <Button
-          label={available ? 'Request a consultation' : 'Not taking requests'}
-          onPress={() => router.push({ pathname: '/support/consult/[id]', params: { id: expert.id } })}
-          disabled={!available}
-          size="lg"
-          full
-        />
-      }>
+    <Screen back>
       <View style={{ alignItems: 'flex-start', gap: space.sm }}>
-        <ExpertInitials expert={expert} size={84} />
+        <ExpertInitials expert={expert} size={80} />
         <View style={{ gap: 2 }}>
           <T variant="hero" accessibilityRole="header">
             {expert.name}
           </T>
-          <T variant="lead">{expert.role}</T>
+          <T variant="lead">{expert.specialty}</T>
+          {expert.organization && expert.organization !== expert.name ? <T variant="small">{expert.organization}</T> : null}
         </View>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-          <DemoBadge origin={expert.origin} label="Sample profile · fictional" />
-          <VerificationBadge verification={expert.verification} />
-        </View>
+        <StatusBadge status={expert.isDemo ? 'demo_not_verified' : expert.verificationStatus} />
       </View>
 
-      <T>{expert.bio}</T>
+      {notice ? <Notice tone="sand" text={notice} /> : null}
 
-      <Section title="Focus">
-        <T variant="bodyStrong">{expert.specialty}</T>
-        <T variant="small">Topics: {expert.topics.map((t) => topicLabel[t]).join(', ')}</T>
-      </Section>
+      <T>{expert.description}</T>
 
-      <Section title="Credentials">
+      <Section title="About this listing">
         <Panel>
-          <T>{expert.credentials}</T>
-          <SourceList verification={expert.verification} />
+          <T variant="small">Service: {serviceLabel(expert.serviceCategory)}</T>
+          <T variant="small">For: {AUDIENCE[expert.audience] ?? expert.audience}</T>
+          <T variant="smallStrong">Credentials, as listed</T>
+          <T variant="small">{expert.credentials}</T>
+          <SourceLink url={expert.sourceUrl} label={expert.sourceUrl ? 'Where this information comes from' : undefined} />
         </Panel>
       </Section>
 
-      <Section title="Ways to connect">
-        <View style={{ gap: space.xs }}>
-          {expert.contactMethods.map((m) => (
-            <View key={m} style={{ flexDirection: 'row', gap: space.sm, alignItems: 'center' }}>
-              <Icon name={methodInfo[m].icon} color={colors.ink2} />
-              <T>{methodInfo[m].label}</T>
-            </View>
-          ))}
-        </View>
-      </Section>
-
-      <Section title="Sample availability">
-        {available ? (
-          <View style={{ gap: 4 }}>
-            {expert.availability.map((s) => (
-              <T key={s} variant="small">
-                {slotLabel(s)}
-              </T>
+      {contact?.options.length ? (
+        <Section title="Contact">
+          <View style={{ gap: space.xs }}>
+            {contact.options.map((o) => (
+              <Button
+                key={o.type}
+                label={`${CONTACT[o.type].label} · ${o.type === 'website' ? o.value.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : o.value}`}
+                icon={CONTACT[o.type].icon}
+                variant="secondary"
+                onPress={() => Linking.openURL(CONTACT[o.type].href(o.value)).catch(() => {})}
+                accessibilityHint="Opens outside Nurture"
+              />
             ))}
-            <T variant="caption">Example times for the demo. They don’t reflect anyone’s real calendar.</T>
           </View>
-        ) : (
-          <T variant="small">This sample profile shows how someone who isn’t taking new requests would appear.</T>
-        )}
-      </Section>
+          <T variant="caption">{contact.notice}</T>
+        </Section>
+      ) : null}
+
+      {expert.isDemo ? (
+        <Section title="Consultation request">
+          <T variant="small">This is a fictional profile, so a request is only saved in Nurture to show how the flow will work. It isn’t sent to anyone.</T>
+          <Button label="Write a request" icon="edit" onPress={() => router.push({ pathname: '/support/consult/[id]', params: { id: expert.id } })} />
+        </Section>
+      ) : null}
     </Screen>
   );
 }

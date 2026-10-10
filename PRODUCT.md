@@ -8,7 +8,7 @@ adaptive
 
 ## Stack
 
-Expo (SDK 57) / React Native / TypeScript with expo-router, one codebase for iPhone and Android (`frontend/`). The backend is built separately by a teammate in `backend/` (stack not yet chosen). The frontend talks to it only through `frontend/src/services`; see `frontend/docs/BACKEND_INTEGRATION.md`.
+Expo (SDK 57) / React Native / TypeScript with expo-router, one codebase for iPhone and Android (`frontend/`). The teammate's backend (`backend/`) is Node, Express, Prisma and SQLite, running in demo-login mode for now. The frontend talks to it only through `frontend/src/services`; see `frontend/docs/BACKEND_INTEGRATION.md`.
 
 ## Users
 
@@ -29,8 +29,11 @@ Not another generic AI answer box: Nurture's centre of gravity is connecting par
 
 ## Capabilities and Constraints
 
-- Interactive rooms: nursery (sleep), kitchen (feeding, product information), living room (questions and experts), changing area (diapers), play corner (milestones and activities), plus community and profile.
-- Demo mode until the backend exists: all data is local sample data and always labelled as such.
+- Navigation is spatial: the rooms are the middle of the app (swipe left/right between nursery, kitchen, living room, changing area and play corner), Home sits above, Settings below.
+- Nursery: tapping the crib opens a baby-monitor device (illustrated night-vision view, plus a dashboard of logged sleep). There are no sensors, so vitals tiles stay empty. The lamp chain starts and ends sleep sessions.
+- Play corner: a height ruler on the growth board, recorded milestones, play ideas.
+- Data comes from the backend. An offline demo mode (no API URL) uses device-only sample data, clearly labelled.
+- Community and profile were removed for now.
 - Never fabricate experts, credentials, endorsements, product claims, reviews or community activity. Sample content is labelled as fictional or unverified.
 - Not medical advice: no diagnosis, no interpreting logs, no rigid milestone deadlines. Urgent concerns are pointed to a pediatrician or emergency services first.
 - No guilt or judgment about sleep, feeding choices or development.
@@ -39,6 +42,8 @@ Not another generic AI answer box: Nurture's centre of gravity is connecting par
 
 - Name: Nurture.
 - Visual reference: `frontend/design/reference/nursery-reference.png`. Warm photoreal nursery at night, interpreted as layered 2.5D illustrations.
+- Fonts: Lora (headings) and Nunito Sans (body).
+- Monitor reference: `frontend/design/reference/IMG_0492.png`.
 - Palette: warm cream `#D8C6AC` (dominant), sage `#879783`, dusty blue `#A9B9C6`, warm white `#F5F0E7`, charcoal `#352F29`, terracotta `#B9826B` for small accents.
 - Gender-neutral, editorial, calm; no cartoonish, clinical or space-themed styling; no emoji standing in for illustrations.
 

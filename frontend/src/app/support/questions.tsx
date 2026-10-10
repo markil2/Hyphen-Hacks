@@ -1,22 +1,19 @@
 import { router } from 'expo-router';
 
-import { AsyncBlock, Button, EmptyState, IconButton, ListRow, Screen, Section } from '@/components/ui';
-import { useSaved } from '@/features/saved/useSaved';
+import { AsyncBlock, Button, EmptyState, ListRow, Screen, Section } from '@/components/ui';
 import { statusCopy } from '@/features/support/ConsultStatus';
-import { topicLabel } from '@/features/support/ExpertCard';
-import { relativeTime, slotLabel } from '@/lib/time';
-import { stores, useCatalog, useCollection } from '@/state';
+import { categoryLabel } from '@/features/support/ExpertCard';
+import { relativeTime } from '@/lib/time';
+import { stores, useCatalog } from '@/state';
 import { colors } from '@/theme';
 
-/** The bookshelf: everything a parent has asked, requested or kept. */
+/** The bookshelf: everything a parent has asked or requested. */
 export default function MyQuestions() {
-  const questions = useCollection(stores.questions);
-  const consultations = useCollection(stores.consultations);
-  const experts = useCatalog(stores.experts);
-  const answers = useSaved('answer');
+  const questions = useCatalog(stores.questions);
+  const consultations = useCatalog(stores.consultations);
 
   return (
-    <Screen back title="My questions" subtitle="Questions, requests and answers you kept.">
+    <Screen back title="My questions" subtitle="What you’ve asked, and requests you’ve saved.">
       <Button label="Ask a new question" icon="plus" onPress={() => router.push('/support/ask')} />
 
       <Section title="Questions">
@@ -32,9 +29,8 @@ export default function MyQuestions() {
               icon="support"
               iconTone={colors.sageWash}
               title={q.text}
-              subtitle={`${topicLabel[q.topic]} · ${q.status === 'recorded' ? 'Recorded in demo, not sent' : q.status} · ${relativeTime(q.createdAt)}`}
+              subtitle={`${categoryLabel[q.category] ?? q.category} · saved, not sent · ${relativeTime(q.createdAt)}`}
               last={i === questions.items.length - 1}
-              right={<IconButton icon="trash" label="Remove question" tone="clear" onPress={() => questions.remove(q.id)} disabled={questions.isBusy(`remove:${q.id}`)} />}
             />
           ))}
         </AsyncBlock>
@@ -46,38 +42,19 @@ export default function MyQuestions() {
           error={consultations.error}
           onRetry={consultations.retry}
           isEmpty={consultations.items.length === 0}
-          empty={<EmptyState icon="calendar" title="No requests yet" body="Find an expert and request a time to see it here." action={{ label: 'Find an expert', onPress: () => router.push('/support/experts') }} />}>
-          {consultations.items.map((c, i) => {
-            const e = experts.items.find((x) => x.id === c.expertId);
-            return (
-              <ListRow
-                key={c.id}
-                icon="calendar"
-                iconTone={colors.blueWash}
-                title={e?.name ?? 'Expert'}
-                subtitle={`${statusCopy[c.status].label} · ${slotLabel(c.slot)}`}
-                onPress={() => router.push({ pathname: '/support/consultation/[id]', params: { id: c.id } })}
-                last={i === consultations.items.length - 1}
-              />
-            );
-          })}
-        </AsyncBlock>
-      </Section>
-
-      <Section title="Saved answers">
-        {answers.items.length ? (
-          answers.items.map((a, i) => (
+          empty={<EmptyState icon="calendar" title="No requests yet" body="Open a profile in the directory to write one." action={{ label: 'Find an expert', onPress: () => router.push('/support/experts') }} />}>
+          {consultations.items.map((c, i) => (
             <ListRow
-              key={a.id}
-              icon="bookmark"
-              title={a.title}
-              last={i === answers.items.length - 1}
-              right={<IconButton icon="trash" label="Remove saved answer" tone="clear" onPress={() => answers.remove(a.id)} />}
+              key={c.id}
+              icon="calendar"
+              iconTone={colors.blueWash}
+              title={c.expertName ?? 'Consultation request'}
+              subtitle={`${statusCopy[c.status]?.label ?? c.status} · ${relativeTime(c.createdAt)}`}
+              onPress={() => router.push({ pathname: '/support/consultation/[id]', params: { id: c.id } })}
+              last={i === consultations.items.length - 1}
             />
-          ))
-        ) : (
-          <EmptyState icon="bookmark" title="Nothing saved yet" body="Tap the bookmark on a reply in a conversation to keep it here." />
-        )}
+          ))}
+        </AsyncBlock>
       </Section>
     </Screen>
   );

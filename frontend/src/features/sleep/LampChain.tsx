@@ -5,9 +5,10 @@ import Svg, { Circle, Line } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { useStage } from '@/components/scene/geometry';
+import { useOptionalPager } from '@/features/navigation/PagerContext';
 import { haptic } from '@/lib/haptics';
 import { useCalmMotion } from '@/lib/motion';
-import { colors, fonts } from '@/theme';
+import { fonts } from '@/theme';
 import { T } from '@/components/ui';
 
 const LENGTH = 30; // design units
@@ -30,6 +31,7 @@ export function LampChain({
 }) {
   const { s } = useStage();
   const calm = useCalmMotion();
+  const pager = useOptionalPager();
   const y = useSharedValue(0);
   const swing = useSharedValue(0);
 
@@ -69,6 +71,8 @@ export function LampChain({
     .onEnd((_e, success) => {
       if (success) scheduleOnRN(tug);
     });
+  // Pulling the chain must never also swipe to another room or page.
+  if (pager) pan.blocksExternalGesture(...pager.pans);
   const gesture = Gesture.Exclusive(pan, tap);
 
   const chainStyle = useAnimatedStyle(() => ({
@@ -105,8 +109,12 @@ export function LampChain({
           </Animated.View>
         </View>
       </GestureDetector>
-      <View pointerEvents="none" style={[styles.tag, { top: len + 26 }]}>
-        <T style={styles.tagText}>{active ? 'Pull to end' : 'Pull chain'}</T>
+      <View pointerEvents="none" style={[styles.tagWrap, { top: len + 22 }]}>
+        <View style={styles.tag}>
+          <T style={styles.tagText} numberOfLines={1}>
+            {active ? 'Pull to end' : 'Pull'}
+          </T>
+        </View>
       </View>
     </View>
   );
@@ -117,15 +125,16 @@ const styles = StyleSheet.create({
   hit: { width: 44, alignItems: 'center' },
   chain: { position: 'absolute', top: 0, transformOrigin: 'top center' },
   beadWrap: { position: 'absolute' },
+  tagWrap: { position: 'absolute', left: -40, right: -40, alignItems: 'center' },
   tag: {
-    position: 'absolute',
-    paddingHorizontal: 9,
-    height: 24,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
-    backgroundColor: 'rgba(245,240,231,0.92)',
-    minWidth: 84,
+    backgroundColor: 'rgba(36,27,21,0.26)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,248,236,0.32)',
     alignItems: 'center',
   },
-  tagText: { fontFamily: fonts.bodySemibold, fontSize: 12, color: colors.charcoal },
+  tagText: { fontFamily: fonts.bodySemibold, fontSize: 11, color: 'rgba(255,250,242,0.95)' },
 });

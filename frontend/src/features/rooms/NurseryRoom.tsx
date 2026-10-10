@@ -1,5 +1,4 @@
-import { router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -8,17 +7,21 @@ import { RoomShell } from '@/components/scene/RoomShell';
 import type { SceneHandle } from '@/components/scene/RoomScene';
 import { NURSERY, nurseryArt } from '@/components/scene/art/nursery';
 import { DemoBadge, T } from '@/components/ui';
+import { usePager } from '@/features/navigation/PagerContext';
 import { LampChain } from '@/features/sleep/LampChain';
+import { BabyMonitor } from '@/features/sleep/monitor/BabyMonitor';
+import { hm, sleepStats } from '@/features/sleep/sleepStats';
 import { SleepTimer } from '@/features/sleep/SleepTimer';
 import { useSessionFlow } from '@/features/sleep/useSessionFlow';
 import { useCalmMotion } from '@/lib/motion';
-import { formatDuration } from '@/lib/time';
 import { space } from '@/theme';
 
-export default function Nursery() {
+export function NurseryRoom({ index }: { index: number; active: boolean }) {
   const scene = useRef<SceneHandle>(null);
   const flow = useSessionFlow();
   const calm = useCalmMotion();
+  const pager = usePager();
+  const [monitorOpen, setMonitorOpen] = useState(false);
   const light = useSharedValue(flow.active ? 0.18 : 1);
 
   // The lamp dims while a session runs; it is feedback, not a cause.
@@ -26,11 +29,21 @@ export default function Nursery() {
     light.value = withTiming(flow.active ? 0.18 : 1, { duration: calm ? 0 : 900 });
   }, [flow.active, calm, light]);
 
-  const openCrib = () => scene.current?.focusOn(NURSERY.crib, () => router.push('/nursery/sleep'));
-  const today = flow.sleep.today;
+  const openMonitor = () => {
+    pager.setLocked(true);
+    scene.current?.focusOn(NURSERY.crib, () => setMonitorOpen(true));
+  };
+  const closeMonitor = () => {
+    setMonitorOpen(false);
+    pager.setLocked(false);
+    scene.current?.reset(true);
+  };
+
+  const stats = sleepStats(flow.sleep.items);
 
   return (
     <RoomShell
+      index={index}
       sceneRef={scene}
       art={nurseryArt}
       light={light}
@@ -39,10 +52,10 @@ export default function Nursery() {
       title="Nursery"
       subtitle="Sleep & comfort"
       dark={Boolean(flow.active)}
-      description="Nursery: a wooden crib by the wall, a nightstand with a lamp, a soft toy and blocks on the carpet."
+      description="Nursery: a wooden crib by the wall, a nightstand with a lamp, a soft toy and blocks on a round rug."
       objects={
         <>
-          <InteractiveObject area={NURSERY.crib} label="Crib" hint="Zooms in to your baby's sleep log" tag="Crib · sleep log" onPress={openCrib} />
+          <InteractiveObject area={NURSERY.crib} label="Crib" hint="Opens the baby monitor and sleep dashboard" tag="Monitor" onPress={openMonitor} />
           <InteractiveObject
             area={NURSERY.lampShade}
             label="Lamp"
@@ -66,16 +79,19 @@ export default function Nursery() {
             onEdit={(s) => flow.edit(s.id)}
             onDismissEnded={flow.dismiss}
           />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.xxs }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
             <T variant="caption" style={{ flex: 1 }}>
               {flow.sleep.status === 'ready'
-                ? `Today so far: ${today.length} session${today.length === 1 ? '' : 's'}${today.length ? `, ${formatDuration(flow.sleep.todayTotalMs)}` : ''}`
-                : ' '}
+                ? `Today: ${stats.todayCount} sleep${stats.todayCount === 1 ? '' : 's'}${stats.todayCount ? `, ${hm(stats.todayMinutes)}` : ''}`
+                : flow.sleep.status === 'error'
+                  ? 'Couldn’t load the sleep log.'
+                  : 'Loading…'}
             </T>
-            <DemoBadge label="Demo log" />
+            <DemoBadge origin={flow.sleep.items[0]?.origin ?? 'api'} label="Offline demo" />
           </View>
         </>
       }
+      overlay={monitorOpen ? <BabyMonitor flow={flow} onClosed={closeMonitor} /> : null}
     />
   );
 }

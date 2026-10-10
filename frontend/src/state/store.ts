@@ -48,7 +48,7 @@ export interface CollectionState<T> {
   busy: string[];
 }
 
-export function createCollection<T extends BaseRecord>(repo: Repo<T>, sort?: (a: T, b: T) => number) {
+export function createCollection<T extends BaseRecord>(repo: Repo<T>, sort?: (a: T, b: T) => number, afterChange?: () => void) {
   const store = emitter<CollectionState<T>>({ items: [], status: 'idle', busy: [] });
   const run = singleFlight();
   const ordered = (items: T[]) => (sort ? [...items].sort(sort) : items);
@@ -81,13 +81,20 @@ export function createCollection<T extends BaseRecord>(repo: Repo<T>, sort?: (a:
       return track(key, async () => {
         const record = await repo.create(input);
         store.set({ items: ordered([record, ...store.get().items]) });
+        afterChange?.();
         return record;
       });
     },
     update(id: string, patch: Partial<NewRecord<T>>) {
       return track(`update:${id}`, async () => {
-        const record = await repo.update(id, patch);
+        // Send the merged record so adapters can map whole entries (e.g. a feeding's kind).
+        const current = store.get().items.find((item) => item.id === id);
+        const { id: _id, origin: _origin, ...rest } = (current ?? {}) as T;
+        void _id;
+        void _origin;
+        const record = await repo.update(id, { ...(rest as unknown as Partial<NewRecord<T>>), ...patch });
         store.set({ items: ordered(store.get().items.map((item) => (item.id === id ? record : item))) });
+        afterChange?.();
         return record;
       });
     },
@@ -95,6 +102,7 @@ export function createCollection<T extends BaseRecord>(repo: Repo<T>, sort?: (a:
       return track(`remove:${id}`, async () => {
         await repo.remove(id);
         store.set({ items: store.get().items.filter((item) => item.id !== id) });
+        afterChange?.();
       });
     },
     reset() {
@@ -133,6 +141,12 @@ export function createCatalog<T>(catalog: Catalog<T>) {
   const run = singleFlight();
   return {
     ...store,
+    /** Put a record the server just returned into the list without refetching. */
+    upsert(item: T & { id: string }, first = true) {
+      const items = store.get().items as (T & { id: string })[];
+      const exists = items.some((x) => x.id === item.id);
+      store.set({ items: exists ? items.map((x) => (x.id === item.id ? item : x)) : first ? [item, ...items] : [...items, item] });
+    },
     load(force = false) {
       const { status } = store.get();
       if (!force && (status === 'loading' || status === 'ready')) return Promise.resolve();
@@ -155,7 +169,7 @@ export function useCatalog<T>(catalog: CatalogStore<T>) {
   useEffect(() => {
     catalog.load();
   }, [catalog]);
-  return { ...state, retry: () => catalog.load(true) };
+  return { ...state, retry: () => catalog.load(true), upsert: catalog.upsert };
 }
 
 /* ── Single documents ──────────────────────────────────────── */

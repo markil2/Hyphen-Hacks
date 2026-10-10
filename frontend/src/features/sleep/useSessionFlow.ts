@@ -2,11 +2,12 @@ import { router } from 'expo-router';
 import { useState, useSyncExternalStore } from 'react';
 
 import { haptic } from '@/lib/haptics';
+import { ApiError } from '@/services/api/client';
 import { messageOf } from '@/state/store';
 
 import { useSleep } from './useSleep';
 
-// Which completed session to confirm, shared by the nursery and the sleep screen.
+// Which completed session to confirm, shared by the nursery and the monitor.
 let justEndedId: string | null = null;
 const listeners = new Set<() => void>();
 const setJustEnded = (id: string | null) => {
@@ -33,6 +34,11 @@ export function useSessionFlow() {
       await sleep.start();
       haptic.success();
     } catch (e) {
+      // Another device (or a double tap) already started one: show the real state instead of an error.
+      if (e instanceof ApiError && e.code === 'SLEEP_ALREADY_ACTIVE') {
+        await sleep.retry();
+        return;
+      }
       setError(messageOf(e));
     }
   };
