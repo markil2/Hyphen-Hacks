@@ -7,12 +7,15 @@
 
 Each person works only in their own folder on their own branch. Merge into `main` with a pull request.
 
-## Frontend
+## Running the app
 
 ```bash
-cd frontend
-npm install
-npm run dev
+# backend (first time: cp .env.example .env, npm install, npm run prisma:generate, npm run db:deploy, npm run db:seed)
+cd backend && npm run dev
+
+# frontend (first time: cp .env.example .env, npm install)
+cd frontend && npx expo start
 ```
 
-The API's base URL goes in `frontend/.env` as `VITE_API_URL=http://localhost:8000` (copy `frontend/.env.example`).
+Press `i` for the iOS simulator, or scan the QR code with Expo Go (use your computer's LAN IP in `frontend/.env` on a real phone).
+Details: [frontend/docs/BACKEND_INTEGRATION.md](frontend/docs/BACKEND_INTEGRATION.md).

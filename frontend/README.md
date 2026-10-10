@@ -1,16 +1,41 @@
-# React + Vite
+# Nurture — frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Expo (SDK 57) + React Native + TypeScript app for iPhone and Android. The app is a calm, illustrated home: each room
+holds part of the day (sleep in the nursery, feeding in the kitchen, questions and expert support in the living room).
 
-Currently, two official plugins are available:
+## Run it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npx expo start
+```
 
-## React Compiler
+- **On your phone:** install **Expo Go**, then scan the QR code from the terminal (same Wi-Fi as your computer).
+- **In a browser:** press `w`, or run `npx expo start --web`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Checks
 
-## Expanding the Oxlint configuration
+```bash
+npx tsc --noEmit
+npx expo lint
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Demo mode
+
+With `EXPO_PUBLIC_API_URL` empty (the default), everything runs on sample data stored on the device. Sample content is
+always labelled in the UI. Profile → Demo tools can restore the sample data or simulate a connection error.
+
+To connect the backend, see [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md).
+
+## Layout
+
+| Path | What's there |
+|---|---|
+| `src/app/` | Screens (expo-router). Tabs live in `(tabs)/`; each room has its own folder. |
+| `src/components/scene/` | The 2.5D room engine: `RoomScene` (layers, parallax, camera zoom), `InteractiveObject`, `RoomShell`, and the room art in `art/`. |
+| `src/components/ui/` | Shared UI: buttons, fields, time editor, badges, empty/loading/error states. |
+| `src/features/` | Feature logic and components (sleep, feeding, pantry, support, community…). |
+| `src/services/` | Data access. `mock/` for demo mode, `api/` for the real backend, chosen in `index.ts`. |
+| `src/state/` | Small stores and hooks over the services. |
+| `src/theme/` | Colours, type, spacing, shadows. |
+| `design/reference/` | The original nursery render the visual style is based on. |
