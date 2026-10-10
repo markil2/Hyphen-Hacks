@@ -103,6 +103,7 @@ function FloorLamp() {
 export const livingArt: RoomArt = {
   id: 'living',
   floor: '#7E5D40',
+  wall: '#CDB898',
   defs: (
     <>
       {wallGradient('liv-wall', '#CDB898', '#E2D3BC')}

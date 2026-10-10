@@ -54,7 +54,14 @@ export function RoomShell({
 
   return (
     <View style={[styles.root, { backgroundColor: art.floor }]}>
-      <RoomScene ref={sceneRef} art={art} light={light} focusY={focusY} zoom={zoom} accessibilityLabel={description}>
+      <RoomScene
+        ref={sceneRef}
+        art={art}
+        light={light}
+        // Rooms are composed for a short status bar; on notched phones, lower the room so the title stays on bare wall.
+        focusY={(focusY ?? 0) - insets.top * 0.9}
+        zoom={zoom}
+        accessibilityLabel={description}>
         {objects}
       </RoomScene>
 

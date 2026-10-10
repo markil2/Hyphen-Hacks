@@ -87,6 +87,7 @@ function Toys() {
 export const playArt: RoomArt = {
   id: 'play',
   floor: '#86643F',
+  wall: '#D3C0A1',
   defs: (
     <>
       {wallGradient('ply-wall', '#D3C0A1', '#E7DAC5')}

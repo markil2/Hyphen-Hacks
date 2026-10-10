@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { ReactNode } from 'react';
-import { Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Platform, Pressable, ScrollView, ScrollViewProps, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, IconName } from '@/components/icons';
@@ -21,6 +21,7 @@ export function Screen({
   contentStyle,
   footer,
   scroll = true,
+  sheet = false,
   ...scrollProps
 }: {
   title?: string;
@@ -32,14 +33,17 @@ export function Screen({
   contentStyle?: StyleProp<ViewStyle>;
   footer?: ReactNode;
   scroll?: boolean;
+  /** Presented as an iOS page sheet, which already sits below the status bar. */
+  sheet?: boolean;
 } & ScrollViewProps) {
   const insets = useSafeAreaInsets();
+  const top = sheet && Platform.OS === 'ios' ? space.xs : insets.top;
   const header =
     title || back ? (
-      <Header title={title} subtitle={subtitle} back={back} right={right} />
+      <Header title={title} subtitle={subtitle} back={back} right={right} closeIcon={sheet} />
     ) : null;
   return (
-    <View style={[styles.screen, { backgroundColor: background, paddingTop: insets.top }]}>
+    <View style={[styles.screen, { backgroundColor: background, paddingTop: top }]}>
       {scroll ? (
         <ScrollView
           {...scrollProps}
@@ -69,19 +73,21 @@ export function Header({
   subtitle,
   back,
   right,
+  closeIcon = false,
 }: {
   title?: string;
   subtitle?: string;
   back?: boolean | (() => void);
   right?: ReactNode;
+  closeIcon?: boolean;
 }) {
   return (
     <View style={styles.header}>
       {back ? (
         <View style={styles.headerBar}>
           <IconButton
-            icon="back"
-            label="Back"
+            icon={closeIcon && typeof back !== 'function' ? 'close' : 'back'}
+            label={closeIcon && typeof back !== 'function' ? 'Close' : 'Back'}
             onPress={typeof back === 'function' ? back : () => goBack()}
           />
           <View style={{ flexDirection: 'row', gap: space.xs }}>{right}</View>

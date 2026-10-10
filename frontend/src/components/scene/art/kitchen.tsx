@@ -143,6 +143,7 @@ function HighChair() {
 export const kitchenArt: RoomArt = {
   id: 'kitchen',
   floor: '#8F6A47',
+  wall: '#D6C3A6',
   defs: (
     <>
       {wallGradient('kit-wall', '#D6C3A6', '#E8DAC4')}
@@ -165,8 +166,6 @@ export const kitchenArt: RoomArt = {
         <G>
           <Shell wallId="kit-wall" floorId="kit-floor" baseboard="#E2D3BB" />
           <Floorboards color="rgba(90,60,34,0.2)" />
-          {/* morning light from the window, on the floor beneath everything */}
-          <Path d="M30 312 L150 330 L250 520 L40 492 Z" fill="#FFF3DA" opacity={0.16} />
           <Window />
           <PantryShelf />
         </G>

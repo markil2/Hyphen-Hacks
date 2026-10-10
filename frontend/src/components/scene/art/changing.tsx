@@ -84,6 +84,7 @@ function WallShelf() {
 export const changingArt: RoomArt = {
   id: 'changing',
   floor: '#7A5A3E',
+  wall: '#D2BEA0',
   defs: (
     <>
       {wallGradient('chg-wall', '#D2BEA0', '#E6D8C2')}

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Line } from 'react-native-svg';
@@ -49,6 +49,7 @@ export function LampChain({
     fire();
   };
 
+  // Drag and tap are exclusive, so one gesture can never record two events.
   const pan = Gesture.Pan()
     .enabled(!disabled)
     .activeOffsetY(6)
@@ -63,6 +64,12 @@ export function LampChain({
       swing.value = withSpring(0, { damping: 5, stiffness: 120 });
       if (pulled) scheduleOnRN(fire);
     });
+  const tap = Gesture.Tap()
+    .enabled(!disabled)
+    .onEnd((_e, success) => {
+      if (success) scheduleOnRN(tug);
+    });
+  const gesture = Gesture.Exclusive(pan, tap);
 
   const chainStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: y.value * 0.5 }, { rotateZ: `${swing.value}deg` }],
@@ -76,13 +83,15 @@ export function LampChain({
 
   return (
     <View style={[styles.wrap, { left, top, width: w, height: len + 70 }]} pointerEvents="box-none">
-      <GestureDetector gesture={pan}>
-        <Pressable
+      <GestureDetector gesture={gesture}>
+        <View
+          accessible
           accessibilityRole="button"
           accessibilityLabel="Lamp pull chain"
           accessibilityHint={active ? 'Ends the sleep session in progress' : 'Starts a sleep session'}
-          onPress={tug}
-          disabled={disabled}
+          accessibilityState={{ disabled }}
+          accessibilityActions={[{ name: 'activate' }]}
+          onAccessibilityAction={(e) => e.nativeEvent.actionName === 'activate' && tug()}
           style={[styles.hit, { height: len + 40 }]}>
           <Animated.View style={[styles.chain, { height: len }, chainStyle]} pointerEvents="none">
             <Svg width={w} height={len}>
@@ -94,7 +103,7 @@ export function LampChain({
               <Circle cx={7} cy={7} r={4.6} fill="#D7B985" stroke="#8C6C3F" strokeWidth={1} />
             </Svg>
           </Animated.View>
-        </Pressable>
+        </View>
       </GestureDetector>
       <View pointerEvents="none" style={[styles.tag, { top: len + 26 }]}>
         <T style={styles.tagText}>{active ? 'Pull to end' : 'Pull chain'}</T>

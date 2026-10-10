@@ -17,7 +17,7 @@ export default function BowlForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const feedings = useFeedings();
   const existing = id ? (feedings.items.find((f) => f.id === id && f.kind === 'solid') as Solid | undefined) : undefined;
-  if (id && !existing && feedings.status !== 'ready') return <Screen back title="Edit food">{null}</Screen>;
+  if (id && !existing && feedings.status !== 'ready') return <Screen sheet back title="Edit food">{null}</Screen>;
   return <Form key={existing?.id ?? 'new'} existing={existing} />;
 }
 
@@ -65,7 +65,7 @@ function Form({ existing }: { existing?: Solid }) {
   };
 
   return (
-    <Screen
+    <Screen sheet
       back
       title={existing ? 'Edit food' : 'Log a food'}
       subtitle="What was offered, and anything you noticed."

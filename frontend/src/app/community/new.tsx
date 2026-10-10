@@ -36,7 +36,7 @@ export default function NewPost() {
   };
 
   return (
-    <Screen
+    <Screen sheet
       back
       title="Write a post"
       subtitle="Share where you are. Others will meet you there."

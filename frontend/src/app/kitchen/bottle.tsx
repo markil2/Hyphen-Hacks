@@ -18,7 +18,7 @@ export default function BottleForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const feedings = useFeedings();
   const existing = id ? feedings.items.find((f) => f.id === id && f.kind !== 'solid') : undefined;
-  if (id && !existing && feedings.status !== 'ready') return <Screen back title="Edit feeding">{null}</Screen>;
+  if (id && !existing && feedings.status !== 'ready') return <Screen sheet back title="Edit feeding">{null}</Screen>;
   return <Form key={existing?.id ?? 'new'} existing={existing} />;
 }
 
@@ -75,7 +75,7 @@ function Form({ existing }: { existing?: FeedingEntry }) {
   };
 
   return (
-    <Screen
+    <Screen sheet
       back
       title={existing ? 'Edit feeding' : 'Log a feeding'}
       subtitle="Only what’s useful to you. Everything except the time is optional."

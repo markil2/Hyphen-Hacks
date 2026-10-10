@@ -24,7 +24,7 @@ export default function Kitchen() {
     <RoomShell
       sceneRef={scene}
       art={kitchenArt}
-      focusY={52}
+      focusY={-8}
       zoom={1.1}
       title="Kitchen"
       subtitle="Feeding & nutrition"

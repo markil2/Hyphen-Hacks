@@ -128,10 +128,10 @@ function WallDetails() {
   return (
     <G>
       {/* framed print */}
-      <SvgRect x={88} y={112} width={74} height={92} rx={2} fill={wood.face} />
-      <SvgRect x={93} y={117} width={64} height={82} fill="#EADFCC" />
-      <Path d="M108 186 V160 A17 17 0 0 1 142 160 V186 Z" fill="#9AA796" opacity={0.85} />
-      <Circle cx={125} cy={140} r={5} fill="#C6977F" opacity={0.8} />
+      <SvgRect x={96} y={158} width={60} height={74} rx={2} fill={wood.face} />
+      <SvgRect x={100} y={162} width={52} height={66} fill="#EADFCC" />
+      <Path d="M112 218 V198 A14 14 0 0 1 140 198 V218 Z" fill="#9AA796" opacity={0.85} />
+      <Circle cx={126} cy={180} r={4} fill="#C6977F" opacity={0.8} />
       {/* outlet */}
       <SvgRect x={316} y={322} width={9} height={14} rx={1.5} fill="#EFE6D6" stroke="rgba(53,47,41,0.25)" strokeWidth={0.6} />
     </G>
@@ -164,6 +164,7 @@ function Toys() {
 export const nurseryArt: RoomArt = {
   id: 'nursery',
   floor: '#2C2019',
+  wall: '#A8916F',
   defs: (
     <>
       {wallGradient('nur-wall', '#A8916F', '#CDB898')}
@@ -187,6 +188,9 @@ export const nurseryArt: RoomArt = {
       node: (
         <G>
           <Shell wallId="nur-wall" floorId="nur-floor" baseboard="#C9B595" />
+          {/* a soft wool rug, so the floor reads as a room rather than a void */}
+          <Ellipse cx={200} cy={560} rx={178} ry={64} fill="#5A4536" />
+          <Ellipse cx={200} cy={560} rx={160} ry={55} fill="none" stroke="#6B5444" strokeWidth={3} />
           <WallDetails />
         </G>
       ),

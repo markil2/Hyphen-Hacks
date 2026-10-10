@@ -33,6 +33,8 @@ export interface RoomArt {
   glow?: ReactNode;
   /** Colour that continues below the canvas on tall screens. */
   floor: string;
+  /** Colour that continues above the canvas when a room is lowered. */
+  wall: string;
 }
 
 export interface SceneHandle {
@@ -142,6 +144,7 @@ export const RoomScene = forwardRef<
 
   return (
     <View style={[styles.viewport, { backgroundColor: art.floor }]} onLayout={onLayout}>
+      {baseY > 0 ? <View style={[styles.wallFill, { height: baseY + 2, backgroundColor: art.wall }]} /> : null}
       {size.w > 0 ? (
         <GestureDetector gesture={pan}>
           <Animated.View
@@ -240,4 +243,5 @@ function NightVeil({ light }: { light: SharedValue<number> }) {
 const styles = StyleSheet.create({
   viewport: { flex: 1, overflow: 'hidden' },
   veil: { backgroundColor: '#140D08' },
+  wallFill: { position: 'absolute', top: 0, left: 0, right: 0 },
 });

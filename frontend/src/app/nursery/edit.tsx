@@ -17,7 +17,7 @@ export default function EditSleep() {
 
   if (!session) {
     return (
-      <Screen title="Edit session" back>
+      <Screen sheet title="Edit session" back>
         {sleep.status === 'ready' ? <EmptyState title="This session no longer exists" body="It may have been removed." /> : null}
       </Screen>
     );
@@ -62,7 +62,7 @@ function Editor({ session }: { session: SleepSession }) {
   };
 
   return (
-    <Screen
+    <Screen sheet
       title={session.endedAt ? 'Edit session' : 'Adjust start time'}
       subtitle={endedAt ? `${formatDuration(durationOf({ ...session, startedAt, endedAt }))} total` : 'Session in progress'}
       back
