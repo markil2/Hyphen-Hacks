@@ -1,0 +1,49 @@
+import { router } from 'expo-router';
+import { useRef } from 'react';
+import { View } from 'react-native';
+
+import { InteractiveObject } from '@/components/scene/InteractiveObject';
+import { RoomShell } from '@/components/scene/RoomShell';
+import type { SceneHandle } from '@/components/scene/RoomScene';
+import { LIVING, livingArt } from '@/components/scene/art/living';
+import type { Rect } from '@/components/scene/geometry';
+import { Button } from '@/components/ui';
+import { UrgentHelp } from '@/features/support/UrgentHelp';
+import { space } from '@/theme';
+
+/** The living room: where parents bring questions and find people who can help. */
+export default function Support() {
+  const scene = useRef<SceneHandle>(null);
+  const go = (area: Rect, path: '/support/ask' | '/support/experts' | '/support/questions') =>
+    scene.current?.focusOn(area, () => router.push(path));
+
+  return (
+    <RoomShell
+      sceneRef={scene}
+      art={livingArt}
+      focusY={70}
+      zoom={1.06}
+      showBack={false}
+      title="Living room"
+      subtitle="Questions & expert support"
+      description="Living room: a soft blue sofa with cushions, a side table with a phone, a floor lamp, and a bookshelf."
+      objects={
+        <>
+          <InteractiveObject area={LIVING.phone} label="Phone" hint="Opens a form to ask a question" tag="Ask a question" onPress={() => go(LIVING.phone, '/support/ask')} />
+          <InteractiveObject area={LIVING.sofa} label="Sofa" hint="Browse expert profiles" tag="Find an expert" tagAt="inside" onPress={() => go(LIVING.sofa, '/support/experts')} />
+          <InteractiveObject area={LIVING.bookshelf} label="Bookshelf" hint="Your questions, requests and saved answers" tag="My questions" tagAt="inside" tagShift={-34} onPress={() => go(LIVING.bookshelf, '/support/questions')} />
+        </>
+      }
+      sheet={
+        <>
+          <UrgentHelp compact />
+          <Button label="Ask a question" icon="support" onPress={() => router.push('/support/ask')} size="lg" full />
+          <View style={{ flexDirection: 'row', gap: space.xs }}>
+            <Button label="Find an expert" variant="secondary" onPress={() => router.push('/support/experts')} style={{ flex: 1 }} />
+            <Button label="My questions" variant="secondary" onPress={() => router.push('/support/questions')} style={{ flex: 1 }} />
+          </View>
+        </>
+      }
+    />
+  );
+}

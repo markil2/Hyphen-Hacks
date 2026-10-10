@@ -12,7 +12,9 @@ Each person works only in their own folder on their own branch. Merge into `main
 ```bash
 cd frontend
 npm install
-npm run dev
+npx expo start
 ```
 
-The API's base URL goes in `frontend/.env` as `VITE_API_URL=http://localhost:8000` (copy `frontend/.env.example`).
+Scan the QR code with Expo Go on your phone, or press `w` to open it in a browser. The app runs on sample data until
+`EXPO_PUBLIC_API_URL` is set in `frontend/.env` (copy `frontend/.env.example`). Backend notes:
+[frontend/docs/BACKEND_INTEGRATION.md](frontend/docs/BACKEND_INTEGRATION.md).
