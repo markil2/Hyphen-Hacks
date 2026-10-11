@@ -2,20 +2,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Supabase Postgres. DATABASE_URL is the pooled connection (used at runtime);
-// DIRECT_URL is the direct connection (used by migrations).
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id                   String                @id @default(cuid())
   name                 String
   email                String                @unique
-  /// The Supabase Auth user (auth.users.id) this profile belongs to. Null for the seeded demo parent.
-  supabaseUserId       String?               @unique
+  passwordHash         String?
   emailVerifiedAt      DateTime?
   deletedAt            DateTime?
   createdAt            DateTime              @default(now())
@@ -25,6 +21,7 @@ model User {
   consultationRequests ConsultationRequest[]
   maternalProfile      MaternalProfile?
   familyMemberships    FamilyMembership[]
+  emailTokens          AccountEmailToken[]
   privacyConsents      PrivacyConsent[]
 }
 
@@ -69,6 +66,18 @@ model FamilyInvitation {
   @@index([familyId])
 }
 
+model AccountEmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, expiresAt])
+}
 
 model PrivacyConsent {
   id            String   @id @default(cuid())

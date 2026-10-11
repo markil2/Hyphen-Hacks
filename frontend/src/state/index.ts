@@ -50,21 +50,11 @@ export function refreshSummaries() {
   stores.timeline.load(true);
 }
 
-/** Server-backed stores, cleared whenever the signed-in person changes. */
-const accountScoped = [
-  'baby', 'account', 'dashboard', 'timeline', 'sleep', 'feedings', 'diapers', 'heights', 'milestones', 'questions', 'consultations',
-] as const;
-
-/** Forget everything loaded for the previous user; screens reload on next use. */
-export function resetAccountData() {
-  accountScoped.forEach((name) => stores[name].reset());
-}
-
 /** Wipes device-stored demo records and reloads everything. */
 export async function restoreSampleData() {
   await resetDemoData();
   await Promise.all(
-    Object.values(stores).map((store) => (store.reset(), store.load(true))),
+    Object.values(stores).map((store) => ('reset' in store ? (store.reset(), store.load(true)) : store.load(true))),
   );
 }
 

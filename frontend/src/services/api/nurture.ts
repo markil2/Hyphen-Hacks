@@ -80,31 +80,12 @@ export function remoteServices(): RemoteServices {
       },
     },
 
-    babies: {
-      async list() {
-        return (await api<ApiBaby[]>('babies')).map(m.fromBaby);
-      },
-      async create(input) {
-        const baby = m.fromBaby(await api<ApiBaby>('babies', { method: 'POST', body: input }));
-        babyIdPromise = Promise.resolve(baby.id);
-        return baby;
-      },
-    },
-
     account: {
       async get() {
         const me = await api<ApiUser | { user: ApiUser }>('auth/me');
         const user = 'user' in me ? me.user : me;
         return { name: user.name, email: user.email };
       },
-      async remove() {
-        const res = await api<{ authAccountDeleted: boolean }>('settings/account', { method: 'DELETE', body: { confirmation: 'DELETE MY ACCOUNT' } });
-        return { authAccountDeleted: res.authAccountDeleted };
-      },
-    },
-
-    resetSession() {
-      babyIdPromise = null;
     },
 
     sleep: {

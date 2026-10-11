@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -5,8 +6,7 @@ const ago = (hours: number) => new Date(Date.now() - hours * 3600000);
 
 async function main() {
   await prisma.consultationRequest.deleteMany(); await prisma.parentQuestion.deleteMany(); await prisma.diaperChange.deleteMany(); await prisma.feedingSession.deleteMany(); await prisma.sleepSession.deleteMany(); await prisma.baby.deleteMany(); await prisma.familyInvitation.deleteMany(); await prisma.familyMembership.deleteMany(); await prisma.family.deleteMany(); await prisma.user.deleteMany(); await prisma.expert.deleteMany(); await prisma.educationalResource.deleteMany(); await prisma.nutritionProduct.deleteMany(); await prisma.babyProduct.deleteMany();
-  // The shared demo parent (DEMO_MODE). It has no Supabase login, so it can only be used without a token.
-  const user = await prisma.user.create({ data: { name: "Demo Parent", email: "demo@nurture.local", emailVerifiedAt: new Date() } });
+  const user = await prisma.user.create({ data: { name: "Demo Parent", email: "demo@nurture.local", passwordHash: await bcrypt.hash("demo-password", 12), emailVerifiedAt: new Date() } });
   const family = await prisma.family.create({ data: { name: "River Demo Family", memberships: { create: { userId: user.id, role: "owner" } } } });
   const baby = await prisma.baby.create({ data: { userId: user.id, familyId: family.id, name: "Baby River", birthDate: new Date("2026-04-10T12:00:00.000Z"), sexAtBirth: "not_recorded", initialWeight: 7.4, weightUnit: "lb", initialHeight: 50.8, heightUnit: "cm" } });
   const maternalProfile = await prisma.maternalProfile.create({ data: { userId: user.id, trackingMode: "menstrual", lastPeriodStartDate: new Date("2026-10-01T00:00:00.000Z"), averageCycleLength: 28, averagePeriodDays: 5, multiplesCount: 1 } });

@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/icons';
 import { Button, ErrorState, ListRow, LoadingState, Panel, Section, T, ToggleRow } from '@/components/ui';
-import { authActions, useAuth } from '@/features/auth/session';
 import { usePager } from '@/features/navigation/PagerContext';
 import { BabyAvatar } from '@/features/profile/BabyAvatar';
 import { haptic } from '@/lib/haptics';
@@ -24,7 +23,6 @@ export function SettingsPage() {
   const baby = useDoc(stores.baby);
   const account = useDoc(stores.account);
   const prefs = useDoc(stores.preferences);
-  const auth = useAuth();
   const [health, setHealth] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [failArmed, setFailArmed] = useState(false);
@@ -86,24 +84,6 @@ export function SettingsPage() {
         </Panel>
       ) : baby.status !== 'error' ? (
         <LoadingState label="Loading profile" />
-      ) : null}
-
-      {auth.enabled && dataMode === 'api' ? (
-        <Section title="Account">
-          {auth.session ? (
-            <View>
-              <ListRow icon="profile" title="Account & sign-in" subtitle={auth.session.user.email} onPress={() => router.push('/settings/account')} />
-              <ListRow icon="back" title="Sign out" onPress={authActions.signOut} last />
-            </View>
-          ) : (
-            <Panel tone="blue">
-              <T variant="small" style={{ color: colors.blueDeep }}>
-                You’re exploring the shared demo. Sign in to keep your own baby’s notes.
-              </T>
-              <Button label="Sign in or create an account" size="sm" variant="secondary" onPress={authActions.leaveDemo} style={{ alignSelf: 'flex-start' }} />
-            </Panel>
-          )}
-        </Section>
       ) : null}
 
       <Section title="Your things">
