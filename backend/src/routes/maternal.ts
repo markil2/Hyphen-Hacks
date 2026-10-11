@@ -16,7 +16,7 @@ async function profileFor(userId: string) {
 }
 
 maternalRouter.put("/maternal/profile", validate(z.object({ body: z.object({
-  trackingMode: z.enum(["menstrual", "pregnancy"]),
+  trackingMode: z.enum(["menstrual", "pregnancy", "postpartum"]),
   lastPeriodStartDate: z.coerce.date().nullable().optional(),
   averageCycleLength: z.coerce.number().int().min(15).max(60).nullable().optional(),
   averagePeriodDays: z.coerce.number().int().min(1).max(15).nullable().optional(),

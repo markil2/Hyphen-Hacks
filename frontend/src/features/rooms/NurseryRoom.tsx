@@ -1,21 +1,21 @@
+import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { InteractiveObject } from '@/components/scene/InteractiveObject';
 import { RoomShell } from '@/components/scene/RoomShell';
 import type { SceneHandle } from '@/components/scene/RoomScene';
 import { NURSERY, nurseryArt } from '@/components/scene/art/nursery';
-import { DemoBadge, T } from '@/components/ui';
+import { AlertKey, LampHint, Readout } from '@/components/scene/Console';
 import { PAGES, usePager } from '@/features/navigation/PagerContext';
 import { LampChain } from '@/features/sleep/LampChain';
 import { BabyMonitor } from '@/features/sleep/monitor/BabyMonitor';
-import { hm, sleepStats } from '@/features/sleep/sleepStats';
-import { SleepTimer } from '@/features/sleep/SleepTimer';
+import { sleepStats } from '@/features/sleep/sleepStats';
 import { useSessionFlow } from '@/features/sleep/useSessionFlow';
 import { useCalmMotion } from '@/lib/motion';
-import { space } from '@/theme';
+import { babyAge, formatClock, formatDuration, formatElapsed, useNow } from '@/lib/time';
+import { stores, useDoc } from '@/state';
 
 export function NurseryRoom({ index }: { index: number; active: boolean }) {
   const scene = useRef<SceneHandle>(null);
@@ -41,7 +41,6 @@ export function NurseryRoom({ index }: { index: number; active: boolean }) {
     scene.current?.reset(true);
   };
 
-  const stats = sleepStats(flow.sleep.items);
   // The nursery wall is dark (and darker still with the lamp off): use light status-bar text while it's on screen.
   const onScreen = pager.page === PAGES.rooms && pager.room === index;
 
@@ -54,12 +53,19 @@ export function NurseryRoom({ index }: { index: number; active: boolean }) {
       focusY={92}
       zoom={1.04}
       title="Nursery"
-      subtitle="Sleep & comfort"
       dark
-      description="Nursery: a wooden crib by the wall, a nightstand with a lamp, a soft toy and blocks on a round rug."
+      description="Nursery: a wooden crib by the wall, a nightstand with a lamp, a small whiteboard timeline above it, and a round rug. A little pixel-art baby lies swaddled in the crib."
       objects={
         <>
-          <InteractiveObject area={NURSERY.crib} label="Crib" hint="Opens the baby monitor and sleep dashboard" tag="Monitor" onPress={openMonitor} />
+          <InteractiveObject area={NURSERY.crib} label="Crib" hint="Opens the baby monitor and sleep dashboard" tag={flow.active ? 'Monitor · live' : 'Monitor'} alert={Boolean(flow.active)} onPress={openMonitor} />
+          <InteractiveObject
+            area={NURSERY.whiteboard}
+            label="Whiteboard"
+            hint="Opens a calm timeline of what usually happens around your baby's age"
+            tag="Timeline"
+            tagAt="above"
+            onPress={() => scene.current?.focusOn(NURSERY.whiteboard, () => router.push('/nursery/timeline'))}
+          />
           <InteractiveObject
             area={NURSERY.lampShade}
             label="Lamp"
@@ -71,36 +77,69 @@ export function NurseryRoom({ index }: { index: number; active: boolean }) {
           <LampChain anchor={NURSERY.chainAnchor} active={Boolean(flow.active)} onPull={flow.toggle} disabled={flow.busy} />
         </>
       }
-      sheet={
-        <>
-          <SleepTimer
-            active={flow.active}
-            justEnded={flow.justEnded}
-            busy={flow.busy}
-            error={flow.error}
-            onStart={flow.start}
-            onEnd={flow.end}
-            onEdit={(s) => flow.edit(s.id)}
-            onDismissEnded={flow.dismiss}
-          />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-            <T variant="caption" style={{ flex: 1 }}>
-              {flow.sleep.status === 'ready'
-                ? `Today: ${stats.todayCount} sleep${stats.todayCount === 1 ? '' : 's'}${stats.todayCount ? `, ${hm(stats.todayMinutes)}` : ''}`
-                : flow.sleep.status === 'error'
-                  ? 'Couldn’t load the sleep log.'
-                  : 'Loading…'}
-            </T>
-            <DemoBadge origin={flow.sleep.items[0]?.origin ?? 'api'} label="Offline demo" />
-          </View>
-        </>
-      }
+      sheet={<NurseryReadout flow={flow} onOpenMonitor={openMonitor} />}
       overlay={
         <>
           {onScreen ? <StatusBar style="light" /> : null}
           {monitorOpen ? <BabyMonitor flow={flow} onClosed={closeMonitor} /> : null}
         </>
       }
+    />
+  );
+}
+
+function NurseryReadout({ flow, onOpenMonitor }: { flow: ReturnType<typeof useSessionFlow>; onOpenMonitor: () => void }) {
+  const now = useNow(flow.active ? 1000 : 30_000);
+
+  if (flow.active) {
+    return (
+      <Readout
+        led="amber"
+        pulse
+        label="Sleeping · lamp off"
+        value={formatElapsed(now - new Date(flow.active.startedAt).getTime())}
+        detail={`Since ${formatClock(flow.active.startedAt)}`}
+        error={flow.error}
+        aside={<AlertKey label="Live · open monitor" onPress={onOpenMonitor} />}
+      />
+    );
+  }
+  if (flow.justEnded) {
+    const s = flow.justEnded;
+    return (
+      <Readout
+        led="green"
+        label="Sleep saved"
+        value={formatDuration(new Date(s.endedAt!).getTime() - new Date(s.startedAt).getTime())}
+        detail={`${formatClock(s.startedAt)} – ${formatClock(s.endedAt!)}`}
+        live
+        keys={[
+          { label: 'Done', primary: true, onPress: flow.dismiss },
+          { label: 'Fix times', icon: 'edit', onPress: () => flow.edit(s.id) },
+        ]}
+      />
+    );
+  }
+  return <AwakeReadout flow={flow} now={now} />;
+}
+
+/** Lamp on: the baby at a glance, from the trackers, with a short summary of what's been logged. */
+function AwakeReadout({ flow, now }: { flow: ReturnType<typeof useSessionFlow>; now: number }) {
+  const baby = useDoc(stores.baby);
+  const summary = useDoc(stores.babySummary);
+  const stats = sleepStats(flow.sleep.items, now);
+  const name = baby.value?.name ?? 'Baby';
+  const awakeFor = stats.lastWokeAt ? formatDuration(now - new Date(stats.lastWokeAt).getTime()).replace('under a minute', 'just now') : null;
+
+  return (
+    <Readout
+      led="green"
+      label={[baby.value ? babyAge(baby.value.birthDate) : null, awakeFor ? `awake ${awakeFor}` : 'awake'].filter(Boolean).join(' · ')}
+      value={name}
+      detailLines={2}
+      detail={summary.value ? `✦ ${summary.value.summary}` : summary.status === 'error' ? 'Summary unavailable right now.' : 'Reading today’s logs…'}
+      error={flow.error}
+      aside={<LampHint text="Pull chain to start sleep" />}
     />
   );
 }

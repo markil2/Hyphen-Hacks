@@ -284,6 +284,8 @@ Pregnancy setup:
 }
 ```
 
+Postpartum setup needs only `{ "trackingMode": "postpartum" }`. It lets a parent record health measurements after birth without cycle or pregnancy details.
+
 `multiplesCount` is 1–5 and records singleton/twin/triplet context. It never adjusts or predicts hormone values.
 
 ### Menstrual daily logs
@@ -348,3 +350,23 @@ Blood pressure uses `{ "type": "blood_pressure", "systolic": 110, "diastolic": 7
 | DELETE | `/maternal/hormones/:id` | none | deleted ID |
 
 Hormones: `lh`, `hcg`, `estrogen`, `progesterone`, `fsh`, `other`. Sources: `lab`, `home_test`, `manual_entry`, `other`. Values and units are retained exactly as entered; the API does not assign expected ranges, diagnose from trends, or adjust results for twins/triplets.
+
+## Fridge, statistics, scale and shop
+
+| Method | Path | Body / query | Result |
+|---|---|---|---|
+| GET | `/families/:familyId/notes` | none | `{ items }`: the family's fridge notes, newest first, each with `author { name }` and `mine` |
+| POST | `/families/:familyId/notes` | `{ body (1–1000), color? }` (`cream`, `sage`, `blue`, `terracotta`) | `{ note }` |
+| DELETE | `/notes/:id` | none | deleted ID; only the author can remove a note (others get 404) |
+| POST | `/recipes/ideas` | none | `{ ideas[], source: "ai" \| "library", basedOn, notice }` |
+| GET | `/babies/:babyId/summary` | none | `{ summary, source: "ai" \| "logs", facts[] }` |
+| GET | `/babies/:babyId/stats` | `days?` (1–60, default 14), `timezoneOffsetMinutes?` | `{ daily[], last24h, previous24h, heights[], weights[] }` |
+| POST | `/babies/:babyId/weights` | `{ weight, unit: "kg" \| "lb", measuredAt?, notes? }` | `{ measurement }` |
+| GET | `/babies/:babyId/weights` | `page?`, `limit?` | weight history, newest first |
+| PATCH / DELETE | `/weights/:id` | partial fields / none | corrected measurement / deleted ID |
+| GET | `/foods/search` | `q` (2–80 chars), `baby?` (`true` limits to baby foods) | `{ items[], source: "Open Food Facts" }`: name, brand, image, labelled allergens, link |
+| GET | `/shop/products` | none | `{ items[], notice }`: a curated list of baby-food brands linking to their own stores |
+
+Recipe ideas and the baby summary use Claude when `ANTHROPIC_API_KEY` is set, and fall back to a built-in recipe list and a plain sentence built from the logs otherwise. Claude is given *which* things were logged (life stage, whether the baby is breastfed, hormone names, measurement types), never hormone or measurement values, and is instructed not to interpret, diagnose, or judge. Neither prompts nor replies are logged.
+
+Statistics are counts and sums of what was logged; comparisons say only "more", "fewer" or "same". Weights follow the same rules as heights: stored exactly as entered, no percentiles. The shop is not sponsored, has no prices, and never handles payment. Maternal setup also accepts `{ "trackingMode": "postpartum" }`, which the app creates automatically the first time a parent logs a measurement or hormone result.

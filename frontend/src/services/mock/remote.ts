@@ -1,4 +1,4 @@
-import type { Consultation, Expert, QuestionCategory, TimelineEvent } from '@/types';
+import type { BabyHealthEntry, Consultation, Expert, FamilyNote, HormoneEntry, MomMeasurement, QuestionCategory, TimelineEvent, WeightMeasurement } from '@/types';
 
 import type { RemoteServices } from '../contracts';
 import * as seed from './seed';
@@ -24,7 +24,12 @@ export function demoServices(): RemoteServices {
   const feedings = localRepo('feedings', seed.seedFeedings);
   const diapers = localRepo('diapers', seed.seedDiapers);
   const heights = localRepo('heights', seed.seedHeights);
+  const weights = localRepo<WeightMeasurement>('weights', () => []);
   const milestones = localRepo('milestones', seed.seedMilestones);
+  const babyHealth = localRepo<BabyHealthEntry>('babyHealth', () => []);
+  const momHealth = localRepo<MomMeasurement>('momHealth', () => []);
+  const hormones = localRepo<HormoneEntry>('hormones', () => []);
+  const notes = localRepo<FamilyNote>('notes', () => []);
   const questions = localRepo('questions', seed.seedQuestions);
   const consultations = localRepo<Consultation>('consultations', seed.seedConsultations);
   const experts = localCatalog(seed.seedExperts);
@@ -50,7 +55,54 @@ export function demoServices(): RemoteServices {
     feedings,
     diapers,
     heights,
+    weights,
     milestones,
+    babyHealth,
+    momHealth,
+    hormones,
+    notes: { ...notes, create: (input) => notes.create({ ...input, authorName: 'You', mine: true, createdAt: new Date().toISOString() }) },
+    ai: {
+      async recipeIdeas() {
+        await simulateNetwork();
+        return {
+          source: 'library',
+          notice: 'Offline demo: sample ideas, not nutrition advice.',
+          basedOn: { stage: 'postpartum', breastfeeding: false, hormonesLogged: [] },
+          ideas: [
+            { title: 'Overnight oats with nut butter', why: 'Made the night before, eaten with one hand in the morning.', minutes: 5, ingredients: ['1/2 cup rolled oats', '1/2 cup milk or yogurt', '1 tbsp nut butter', 'Berries'], steps: ['Stir everything but the berries together in a jar.', 'Refrigerate overnight; top with berries.'] },
+          ],
+        };
+      },
+      async babySummary() {
+        await simulateNetwork();
+        return { summary: 'Offline demo: logs stay on this device.', source: 'logs' };
+      },
+    },
+    foods: {
+      async search() {
+        await simulateNetwork();
+        throw new Error('Food search needs the Nurture server (offline demo).');
+      },
+      async shop() {
+        await simulateNetwork();
+        return { items: [], notice: 'Offline demo: the shop needs the Nurture server.' };
+      },
+    },
+    stats: {
+      async get(days) {
+        await simulateNetwork();
+        const empty = { sleepMinutes: 0, feeds: 0, diapers: 0 };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return {
+          daily: Array.from({ length: days }, (_, i) => ({ date: new Date(today.getTime() - (days - 1 - i) * 86_400_000).toISOString(), sleepMinutes: 0, sleeps: 0, feeds: 0, solids: 0, diapers: 0, dirty: 0 })),
+          last24h: empty,
+          previous24h: empty,
+          heights: [],
+          weights: [],
+        };
+      },
+    },
     questions,
     consultations: {
       list: consultations.list,

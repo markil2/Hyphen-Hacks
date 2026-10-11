@@ -10,14 +10,15 @@ import { ROOM_ORDER, usePager } from '@/features/navigation/PagerContext';
 import { haptic } from '@/lib/haptics';
 import { colors, fonts, HIT, radius, shadow, space } from '@/theme';
 
+import { BEZEL, BEZEL_EDGE, Grille, Scanlines, screen } from './Console';
 import { RoomArt, RoomScene, SceneHandle } from './RoomScene';
 
 const ROOM_NAMES = ['Nursery', 'Kitchen', 'Living room', 'Changing area', 'Play corner'];
 
 /**
  * The frame every room shares: the scene fills the screen, the room's name sits
- * on the wall with a quiet handle up to Home, and a warm sheet at the bottom holds
- * the room's controls, the room dots, and a handle down to Settings.
+ * on the wall with a quiet handle up to Home, and a monitor-style console at the
+ * bottom shows the room's readout, the room dots, and a handle down to Settings.
  */
 export function RoomShell({
   index,
@@ -41,7 +42,7 @@ export function RoomShell({
   focusY?: number;
   zoom?: number;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   description: string;
   dark?: boolean;
   objects: ReactNode;
@@ -80,9 +81,11 @@ export function RoomShell({
           <T variant="title" accessibilityRole="header" style={{ color: ink }}>
             {title}
           </T>
-          <T variant="small" style={{ color: dark ? 'rgba(245,240,231,0.82)' : colors.ink2, marginTop: -2 }}>
-            {subtitle}
-          </T>
+          {subtitle ? (
+            <T variant="small" style={{ color: dark ? 'rgba(245,240,231,0.82)' : colors.ink2, marginTop: -2 }}>
+              {subtitle}
+            </T>
+          ) : null}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -99,8 +102,11 @@ export function RoomShell({
         </Pressable>
       </View>
 
-      <View style={[styles.sheet, shadow.lifted, { paddingBottom: insets.bottom + space.xxs }]}>
-        {sheet}
+      <View style={[styles.console, shadow.lifted, { paddingBottom: insets.bottom ? insets.bottom - 6 : space.xs }]}>
+        <View style={styles.screen}>
+          {sheet}
+          <Scanlines />
+        </View>
         <View style={styles.nav}>
           <Pressable
             accessibilityRole="button"
@@ -108,7 +114,7 @@ export function RoomShell({
             disabled={index === 0}
             onPress={() => pager.goToRoom(index - 1)}
             style={[styles.arrow, index === 0 && styles.arrowOff]}>
-            <Icon name="back" size={18} color={colors.ink2} />
+            <Icon name="back" size={16} color={colors.ink2} strokeWidth={2} />
           </Pressable>
           <View style={styles.dots} accessible accessibilityLabel={`Room ${index + 1} of ${ROOM_ORDER.length}: ${title}`}>
             {ROOM_ORDER.map((id, i) => (
@@ -121,21 +127,25 @@ export function RoomShell({
             disabled={index === last}
             onPress={() => pager.goToRoom(index + 1)}
             style={[styles.arrow, index === last && styles.arrowOff]}>
-            <Icon name="chevron" size={18} color={colors.ink2} />
+            <Icon name="chevron" size={16} color={colors.ink2} strokeWidth={2} />
+          </Pressable>
+          <View style={{ marginLeft: 'auto' }}>
+            <Grille />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go down to Settings"
+            accessibilityHint="You can also drag the room up"
+            onPress={() => {
+              haptic.tap();
+              pager.goTo('settings');
+            }}
+            hitSlop={6}
+            style={({ pressed }) => [styles.settings, pressed && { opacity: 0.6 }]}>
+            <T style={styles.settingsText}>Settings</T>
+            <Icon name="down" size={13} color={colors.ink3} strokeWidth={2} />
           </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go down to Settings"
-          accessibilityHint="You can also drag the room up"
-          onPress={() => {
-            haptic.tap();
-            pager.goTo('settings');
-          }}
-          style={({ pressed }) => [styles.settings, pressed && { opacity: 0.6 }]}>
-          <T style={styles.settingsText}>Settings & more</T>
-          <Icon name="down" size={14} color={colors.ink3} strokeWidth={2} />
-        </Pressable>
       </View>
 
       {overlay}
@@ -168,20 +178,38 @@ const styles = StyleSheet.create({
   },
   handleDark: { backgroundColor: 'rgba(36,27,21,0.35)', borderColor: 'rgba(245,240,231,0.25)' },
   handleText: { fontFamily: fonts.bodySemibold, fontSize: 13 },
-  sheet: {
-    backgroundColor: colors.warmWhite,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: space.lg - 4,
-    paddingTop: space.lg - 4,
-    gap: space.sm,
+  console: {
+    backgroundColor: BEZEL,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: BEZEL_EDGE,
+    borderTopColor: '#F6F0E4',
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    gap: 4,
   },
-  nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, marginTop: 2 },
-  arrow: { width: HIT - 8, height: 36, alignItems: 'center', justifyContent: 'center' },
+  screen: {
+    backgroundColor: screen.bg,
+    borderRadius: 14,
+    borderWidth: 4,
+    borderColor: '#14110E',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    overflow: 'hidden',
+    // a faint phosphor glow around the glass
+    shadowColor: '#F2C98A',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  nav: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4 },
+  arrow: { width: HIT - 10, height: 34, alignItems: 'center', justifyContent: 'center' },
   arrowOff: { opacity: 0.25 },
   dots: { flexDirection: 'row', gap: 7, alignItems: 'center' },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.lineStrong },
   dotOn: { width: 18, backgroundColor: colors.charcoal },
-  settings: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 32 },
-  settingsText: { fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.ink3 },
+  settings: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 34, paddingHorizontal: 8, marginLeft: 8 },
+  settingsText: { fontFamily: fonts.bodySemibold, fontSize: 12.5, color: colors.ink3 },
 });

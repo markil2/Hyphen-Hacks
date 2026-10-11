@@ -241,6 +241,64 @@ describe("Nurture API", () => {
     expect(hormone.status).toBe(201); expect(hormone.body.data.measurement.value).toBe(12.5); expect(hormone.body.data.interpretationNotice).toContain("exactly as entered");
   });
 
+  it("keeps fridge notes inside the family and lets only the author remove them", async () => {
+    const families = await request(app).get("/api/families").set(auth()); const fam = families.body.data[0].family.id;
+    const posted = await request(app).post(`/api/families/${fam}/notes`).set(auth()).send({ body: "Bottles are in the dishwasher", color: "sage" });
+    expect(posted.status).toBe(201); expect(posted.body.data.note.author.name).toBe("Test Parent");
+    const list = await request(app).get(`/api/families/${fam}/notes`).set(auth());
+    expect(list.body.data.items[0].body).toBe("Bottles are in the dishwasher"); expect(list.body.data.items[0].mine).toBe(true);
+    const outsider = await registerAndVerify("Note Outsider", "note-outsider@example.test");
+    expect((await request(app).get(`/api/families/${fam}/notes`).set({ Authorization: `Bearer ${outsider}` })).status).toBe(404);
+    expect((await request(app).post(`/api/families/${fam}/notes`).set({ Authorization: `Bearer ${outsider}` }).send({ body: "hi" })).status).toBe(404);
+    expect((await request(app).delete(`/api/notes/${posted.body.data.note.id}`).set({ Authorization: `Bearer ${outsider}` })).status).toBe(404);
+    expect((await request(app).delete(`/api/notes/${posted.body.data.note.id}`).set(auth())).status).toBe(200);
+  });
+
+  it("suggests recipe ideas without exposing logged values", async () => {
+    const res = await request(app).post("/api/recipes/ideas").set(auth()).send({});
+    expect(res.status).toBe(200); expect(res.body.data.source).toBe("library");
+    expect(res.body.data.ideas.length).toBeGreaterThan(0); expect(res.body.data.notice).toContain("never interpreted");
+    expect(JSON.stringify(res.body.data.basedOn)).not.toMatch(/\d+\.\d/);
+  });
+
+  it("summarises the baby from logs only", async () => {
+    const babies = await request(app).get("/api/babies").set(auth()); const id = babies.body.data[0].id;
+    const res = await request(app).get(`/api/babies/${id}/summary`).set(auth());
+    expect(res.status).toBe(200); expect(res.body.data.source).toBe("logs"); expect(typeof res.body.data.summary).toBe("string");
+    const outsider = await registerAndVerify("Summary Outsider", "summary-outsider@example.test");
+    expect((await request(app).get(`/api/babies/${id}/summary`).set({ Authorization: `Bearer ${outsider}` })).status).toBe(404);
+  });
+
+  it("returns daily statistics and a 24-hour comparison", async () => {
+    const babies = await request(app).get("/api/babies").set(auth()); const id = babies.body.data[0].id;
+    const res = await request(app).get(`/api/babies/${id}/stats?days=7`).set(auth());
+    expect(res.status).toBe(200); expect(res.body.data.daily).toHaveLength(7);
+    expect(res.body.data.last24h).toHaveProperty("feeds"); expect(res.body.data.previous24h).toHaveProperty("sleepMinutes");
+  });
+
+  it("records baby weights on the scale and rejects impossible ones", async () => {
+    const babies = await request(app).get("/api/babies").set(auth()); const id = babies.body.data[0].id;
+    const w = await request(app).post(`/api/babies/${id}/weights`).set(auth()).send({ weight: 7.2, unit: "kg" });
+    expect(w.status).toBe(201); expect(w.body.data.measurement.weight).toBe(7.2);
+    expect((await request(app).post(`/api/babies/${id}/weights`).set(auth()).send({ weight: 700, unit: "kg" })).status).toBe(400);
+    const outsider = await registerAndVerify("Weight Outsider", "weight-outsider@example.test");
+    expect((await request(app).delete(`/api/weights/${w.body.data.measurement.id}`).set({ Authorization: `Bearer ${outsider}` })).status).toBe(404);
+    expect((await request(app).delete(`/api/weights/${w.body.data.measurement.id}`).set(auth())).status).toBe(200);
+  });
+
+  it("lists the curated shop and validates food searches without calling out", async () => {
+    const shop = await request(app).get("/api/shop/products").set(auth());
+    expect(shop.status).toBe(200); expect(shop.body.data.items.length).toBeGreaterThan(3); expect(shop.body.data.notice).toContain("Not sponsored");
+    expect((await request(app).get("/api/foods/search?q=a").set(auth())).status).toBe(400);
+  });
+
+  it("sets up postpartum tracking with no cycle or pregnancy details", async () => {
+    const setup = await request(app).put("/api/maternal/profile").set(auth()).send({ trackingMode: "postpartum" });
+    expect(setup.status).toBe(200); expect(setup.body.data.profile.trackingMode).toBe("postpartum");
+    const weight = await request(app).post("/api/maternal/health").set(auth()).send({ type: "weight", value: 68.2, unit: "kg" });
+    expect(weight.status).toBe(201); expect(weight.body.data.measurement.value).toBe(68.2);
+  });
+
   it("switches to pregnancy mode with multiples context and saves symptoms", async () => {
     const setup = await request(app).put("/api/maternal/profile").set(auth()).send({ trackingMode: "pregnancy", estimatedDueDate: "2027-05-20", multiplesCount: 2 });
     expect(setup.status).toBe(200); expect(setup.body.data.profile.multiplesCount).toBe(2); expect(setup.body.data.multiplesNotice).toContain("context only");

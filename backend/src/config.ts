@@ -17,6 +17,9 @@ const schema = z.object({
   EMAIL_FROM: z.string().default("Nurture <noreply@example.com>"),
   APP_BASE_URL: z.string().url().default("http://localhost:5173"),
   PRIVACY_POLICY_VERSION: z.string().default("2026-10-10"),
+  // Optional: recipe ideas on the fridge use Claude when a key is set, and a built-in library otherwise.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default("claude-sonnet-5-5"),
 });
 
 export const config = schema.parse(process.env);

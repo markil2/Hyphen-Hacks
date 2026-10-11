@@ -2,12 +2,13 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ambientDefs, ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
+import { ambientDefs, BaseShadow, ContactShadow, Floorboards, FootDot, Footprint, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The living room: a soft sofa, a bookshelf of saved answers, a phone on the side table. */
 
 export const LIVING = {
   sofa: rect(14, 262, 214, 150),
+  mirror: rect(82, 132, 88, 88),
   phone: rect(236, 330, 56, 44),
   bookshelf: rect(292, 92, 92, 252),
 };
@@ -27,7 +28,7 @@ function Bookshelf() {
   };
   return (
     <G>
-      <ContactShadow id="liv-shadow" cx={340} cy={348} rx={56} ry={9} opacity={0.75} />
+      <BaseShadow from={[292, 340]} to={[386, 352]} depth={12} opacity={0.55} />
       <Quad p={[[294, 96], [384, 108], [384, 352], [294, 340]]} fill={wood.face} />
       <Quad p={[[300, 102], [378, 112], [378, 344], [300, 334]]} fill="#5A4130" />
       {[150, 210, 270].map((y) => (
@@ -45,7 +46,9 @@ function Bookshelf() {
 function Sofa() {
   return (
     <G>
-      <ContactShadow id="liv-shadow" cx={122} cy={404} rx={120} ry={16} opacity={0.75} />
+      <Footprint p={[[12, 380], [214, 406], [230, 378], [28, 352]]} opacity={0.5} />
+      <BaseShadow from={[8, 380]} to={[216, 406]} depth={14} opacity={0.55} />
+      <BaseShadow from={[214, 406]} to={[230, 376]} depth={6} opacity={0.35} />
       {/* back */}
       <Quad p={[[26, 270], [222, 296], [222, 352], [26, 326]]} fill="#93A3AF" />
       <Quad p={[[26, 270], [222, 296], [224, 290], [28, 264]]} fill="#A9B9C6" />
@@ -66,6 +69,8 @@ function Sofa() {
       {/* legs */}
       <SvgRect x={18} y={372} width={5} height={8} fill={wood.dark} />
       <SvgRect x={204} y={398} width={5} height={8} fill={wood.dark} />
+      <FootDot x={20.5} y={380} r={5} />
+      <FootDot x={206.5} y={406} r={5} />
     </G>
   );
 }
@@ -73,7 +78,10 @@ function Sofa() {
 function SideTable() {
   return (
     <G>
-      <ContactShadow id="liv-shadow" cx={262} cy={424} rx={28} ry={6} opacity={0.75} />
+      <ContactShadow id="liv-shadow" cx={263} cy={425} rx={20} ry={4.5} opacity={0.55} />
+      <FootDot x={246} y={422} r={3} />
+      <FootDot x={278} y={424} r={3} />
+      <FootDot x={262} y={428} r={3} />
       <Path d="M254 362 L246 422 M270 364 L278 424 M262 366 L262 428" stroke={wood.side} strokeWidth={3} strokeLinecap="round" />
       <Ellipse cx={262} cy={360} rx={26} ry={9} fill={wood.top} />
       <Ellipse cx={262} cy={362} rx={26} ry={9} fill={wood.face} opacity={0.4} />
@@ -113,6 +121,11 @@ export const livingArt: RoomArt = {
         <Stop offset="0" stopColor="#A47E5A" />
         <Stop offset="1" stopColor="#7E5D40" />
       </LinearGradient>
+      <LinearGradient id="liv-mirror" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0" stopColor="#EEF2F3" />
+        <Stop offset="0.55" stopColor="#CFD9DF" />
+        <Stop offset="1" stopColor="#AFBEC8" />
+      </LinearGradient>
       {shadowGradient('liv-shadow')}
       {glowGradient('liv-glow', '#FFE2AE', 0.6)}
     </>
@@ -125,13 +138,13 @@ export const livingArt: RoomArt = {
           <Shell wallId="liv-wall" floorId="liv-floor" baseboard="#DCCBB2" ambient="liv" />
           <Floorboards />
           <Rug />
-          {/* two small framed photos */}
-          <SvgRect x={70} y={150} width={46} height={58} rx={2} fill={wood.face} />
-          <SvgRect x={74} y={154} width={38} height={50} fill="#DCE3E8" />
-          <Circle cx={93} cy={176} r={8} fill="#A9B9C6" />
-          <SvgRect x={128} y={160} width={56} height={44} rx={2} fill={wood.face} />
-          <SvgRect x={132} y={164} width={48} height={36} fill="#E6DCC8" />
-          <Path d="M136 196 Q156 172 176 196 Z" fill="#879783" />
+          {/* round mirror over the sofa: the parent's own corner */}
+          <Circle cx={129} cy={181} r={41} fill="rgba(40,26,14,0.18)" />
+          <Circle cx={126} cy={176} r={41} fill={wood.face} />
+          <Circle cx={126} cy={176} r={41} fill="none" stroke={wood.top} strokeWidth={1.5} opacity={0.8} />
+          <Circle cx={126} cy={176} r={35} fill="url(#liv-mirror)" />
+          <Path d="M104 166 Q114 148 134 145" stroke="#FBF8F2" strokeWidth={3.5} strokeLinecap="round" fill="none" opacity={0.85} />
+          <Path d="M110 172 Q116 162 126 159" stroke="#FBF8F2" strokeWidth={2} strokeLinecap="round" fill="none" opacity={0.5} />
         </G>
       ),
     },

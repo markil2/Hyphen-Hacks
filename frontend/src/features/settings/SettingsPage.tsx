@@ -7,6 +7,7 @@ import { Icon } from '@/components/icons';
 import { Button, ErrorState, ListRow, LoadingState, Panel, Section, T, ToggleRow } from '@/components/ui';
 import { usePager } from '@/features/navigation/PagerContext';
 import { BabyAvatar } from '@/features/profile/BabyAvatar';
+import { AgeSlider } from '@/features/settings/AgeSlider';
 import { haptic } from '@/lib/haptics';
 import { babyAge } from '@/lib/time';
 import { apiUrl, dataMode, remote } from '@/services';
@@ -85,6 +86,8 @@ export function SettingsPage() {
       ) : baby.status !== 'error' ? (
         <LoadingState label="Loading profile" />
       ) : null}
+
+      <AgeSlider />
 
       <Section title="Your things">
         <View>

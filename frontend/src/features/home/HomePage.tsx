@@ -3,48 +3,39 @@ import { useEffect } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Icon, IconName } from '@/components/icons';
+import { Icon } from '@/components/icons';
+import { BEZEL, BEZEL_EDGE, Grille, LcdPanel, Scanlines, screen } from '@/components/scene/Console';
 import { RoomThumb } from '@/components/scene/RoomThumb';
-import { Button, DemoBadge, ErrorState, ListRow, Panel, Section, T } from '@/components/ui';
-import { PAGES, RoomId, usePager } from '@/features/navigation/PagerContext';
+import { T } from '@/components/ui';
+import { PAGES, ROOM_ORDER, RoomId, usePager } from '@/features/navigation/PagerContext';
 import { BabyAvatar } from '@/features/profile/BabyAvatar';
 import { ROOMS } from '@/features/rooms/rooms';
-import { useSaved } from '@/features/saved/useSaved';
 import { hm } from '@/features/sleep/sleepStats';
 import { useSleep } from '@/features/sleep/useSleep';
 import { haptic } from '@/lib/haptics';
-import { babyAge, formatClock, greeting, relativeTime, useNow } from '@/lib/time';
+import { babyAge, formatClock, formatElapsed, greeting, relativeTime, useNow } from '@/lib/time';
 import { stores, useDoc } from '@/state';
-import { colors, fonts, radius, shadow, space } from '@/theme';
-import type { DashboardSummary, TimelineEvent } from '@/types';
+import { colors, fonts, space } from '@/theme';
+import type { TimelineEvent, WindowStats } from '@/types';
 
-const eventIcon: Record<TimelineEvent['type'], IconName> = {
-  sleep: 'moon',
-  feeding: 'bottle',
-  diaper: 'diaper',
-  question: 'support',
-  height: 'ruler',
-  milestone: 'sprout',
-  health: 'heart',
-};
-const eventRoom: Partial<Record<TimelineEvent['type'], RoomId>> = { sleep: 'nursery', feeding: 'kitchen', diaper: 'changing', height: 'play', milestone: 'play', question: 'living' };
+const eventRoom: Partial<Record<TimelineEvent['type'], RoomId>> = { sleep: 'nursery', feeding: 'kitchen', diaper: 'changing', height: 'play', milestone: 'play', question: 'living', health: 'kitchen' };
 
-/** Home sits above the rooms: a calm summary of the day, and ways back in. */
+/** Home sits above the rooms and works like the monitor's main screen: status, cameras, event log. */
 export function HomePage() {
   const insets = useSafeAreaInsets();
   const pager = usePager();
-  const now = useNow(30_000);
-  const baby = useDoc(stores.baby);
-  const account = useDoc(stores.account);
-  const summary = useDoc(stores.dashboard);
-  const timeline = useDoc(stores.timeline);
   const sleep = useSleep();
-  const saved = useSaved();
+  const now = useNow(sleep.active ? 1000 : 30_000);
+  const baby = useDoc(stores.baby);
+  const summary = useDoc(stores.babySummary);
+  const stats = useDoc(stores.stats);
+  const timeline = useDoc(stores.timeline);
 
   // Refresh whenever Home comes into view.
   useEffect(() => {
     if (pager.page === PAGES.home) {
       summary.retry();
+      stats.retry();
       timeline.retry();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,101 +47,91 @@ export function HomePage() {
     if (contentOffset.y + layoutMeasurement.height > contentSize.height + 70) pager.goTo('rooms');
   };
 
-  const firstName = account.value?.name?.split(' ')[0];
-  const s = summary.value;
+  const s = stats.value;
 
   return (
     <ScrollView
-      style={{ backgroundColor: colors.cream }}
+      style={{ backgroundColor: BEZEL }}
       onScrollEndDrag={onEndDrag}
-      contentContainerStyle={{ paddingTop: insets.top + space.md, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.lg - 4, gap: space.lg }}>
-      <View style={{ gap: space.md }}>
-        <T variant="hero" accessibilityRole="header">
-          {greeting(new Date(now))}
-          {firstName ? `, ${firstName}` : ''}
-        </T>
-        <View style={styles.baby}>
-          <BabyAvatar size={56} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <T variant="heading">{baby.value?.name ?? (baby.status === 'error' ? 'Baby profile' : ' ')}</T>
-            <T variant="small">{baby.value ? babyAge(baby.value.birthDate, now) : baby.status === 'error' ? 'Couldn’t load' : ' '}</T>
-          </View>
-          <DemoBadge origin={baby.value?.origin ?? 'api'} label="Offline demo" />
-        </View>
+      contentContainerStyle={{ paddingTop: insets.top + space.xs, paddingBottom: insets.bottom + space.lg, paddingHorizontal: 14, gap: 14 }}>
+      {/* the device's top edge: brand, clock, grille */}
+      <View style={styles.deviceHead}>
+        <T style={styles.brand}>nurture · home</T>
+        <Grille slots={7} />
+        <T style={styles.brand}>{formatClock(now)}</T>
       </View>
+      <T variant="hero" accessibilityRole="header" style={{ paddingHorizontal: 4 }}>
+        {greeting(new Date(now))}
+      </T>
 
-      {sleep.active ? (
+      {/* Status: the baby, a short summary, and the last 24 hours against the day before */}
+      <LcdPanel>
+        <View style={styles.babyRow}>
+          <BabyAvatar size={48} />
+          <View style={{ flex: 1 }}>
+            <View style={styles.led}>
+              <View style={[styles.ledDot, { backgroundColor: sleep.active ? screen.amber : screen.green }]} />
+              <T style={styles.ledText}>
+                {sleep.active ? `Sleeping · ${formatElapsed(now - new Date(sleep.active.startedAt).getTime())}` : 'Awake'}
+              </T>
+            </View>
+            <T style={styles.name} numberOfLines={1}>
+              {baby.value?.name ?? ' '}
+            </T>
+            <T style={styles.muted}>{baby.value ? babyAge(baby.value.birthDate, now) : ' '}</T>
+          </View>
+        </View>
+        <T style={styles.summary} accessibilityLiveRegion="polite">
+          {summary.value ? `✦ ${summary.value.summary}` : summary.status === 'error' ? 'Summary unavailable right now.' : 'Reading the logs…'}
+        </T>
+        <View style={styles.statRow}>
+          <Delta label="Sleep · 24h" value={s ? hm(s.last24h.sleepMinutes) : '…'} delta={s ? change(s.last24h, s.previous24h, 'sleepMinutes') : ''} />
+          <Delta label="Feeds · 24h" value={s ? String(s.last24h.feeds) : '…'} delta={s ? change(s.last24h, s.previous24h, 'feeds') : ''} />
+          <Delta label="Changes · 24h" value={s ? String(s.last24h.diapers) : '…'} delta={s ? change(s.last24h, s.previous24h, 'diapers') : ''} />
+        </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Sleep session in progress since ${formatClock(sleep.active.startedAt)}. Go to the nursery`}
-          onPress={() => pager.goToRoom('nursery')}
-          style={[styles.live, shadow.soft]}>
-          <Icon name="moon" color={colors.lampGlow} />
-          <View style={{ flex: 1 }}>
-            <T variant="smallStrong" style={{ color: colors.warmWhite }}>
-              Sleep session in progress
-            </T>
-            <T variant="small" style={{ color: 'rgba(245,240,231,0.8)' }}>
-              Since {formatClock(sleep.active.startedAt)} · {hm((now - new Date(sleep.active.startedAt).getTime()) / 60000)} so far
-            </T>
-          </View>
-          <Icon name="chevron" color={colors.warmWhite} />
+          accessibilityLabel="Full statistics"
+          onPress={() => {
+            haptic.tap();
+            router.push('/stats');
+          }}
+          hitSlop={10}
+          style={({ pressed }) => [styles.statsLink, pressed && { opacity: 0.6 }]}>
+          <T style={styles.statsLinkText}>Full stats</T>
+          <Icon name="chevron" size={12} color={screen.muted} />
         </Pressable>
-      ) : null}
+      </LcdPanel>
 
-      <Section title="Today so far">
-        {summary.status === 'error' ? (
-          <ErrorState message={summary.error} onRetry={summary.retry} />
-        ) : (
-          <T variant="lead" accessibilityLiveRegion="polite">
-            {s ? todaySentence(baby.value?.name ?? 'Your baby', s) : 'Gathering today’s notes…'}
-          </T>
-        )}
-        <T variant="caption">Every day looks different. These are just your notes, not a score.</T>
-      </Section>
+      {/* Cameras: every room as a feed */}
+      <View style={styles.cams}>
+        {ROOM_ORDER.map((id, i) => (
+          <CamTile key={id} id={id} index={i} note={id === 'nursery' && sleep.active ? 'Sleeping' : undefined} onPress={() => pager.goToRoom(id)} />
+        ))}
+        <SupportTile />
+      </View>
 
-      <Panel tone="sage" style={{ padding: space.lg - 4, gap: space.sm }}>
-        <T variant="title">Need a hand?</T>
-        <T style={{ color: colors.ink2 }}>Ask in your own words and see which kinds of professionals can help.</T>
-        <View style={{ flexDirection: 'row', gap: space.xs, flexWrap: 'wrap' }}>
-          <Button label="Ask a question" icon="support" variant="sage" onPress={() => router.push('/support/ask')} style={{ flexGrow: 1 }} />
-          <Button label="Find an expert" variant="secondary" onPress={() => router.push('/support/experts')} style={{ flexGrow: 1 }} />
-        </View>
-      </Panel>
-
-      <Section title="Step into a room">
-        <View style={{ flexDirection: 'row', gap: space.sm }}>
-          <RoomTile id="nursery" note={sleep.active ? 'Session running' : 'Monitor & sleep'} onPress={() => pager.goToRoom('nursery')} />
-          <RoomTile id="kitchen" note="Feeding & pantry" onPress={() => pager.goToRoom('kitchen')} />
-        </View>
-      </Section>
-
-      <Section title="Recent activity">
-        {timeline.status === 'error' ? (
-          <ErrorState message={timeline.error} onRetry={timeline.retry} />
-        ) : timeline.value?.length ? (
-          timeline.value.slice(0, 5).map((e, i, arr) => (
-            <ListRow
+      {/* Event log */}
+      <LcdPanel title="Event log">
+        {timeline.value?.length ? (
+          timeline.value.slice(0, 6).map((e, i) => (
+            <Pressable
               key={`${e.type}-${e.at}-${i}`}
-              icon={eventIcon[e.type]}
-              title={e.title}
-              meta={relativeTime(e.at, now)}
-              onPress={eventRoom[e.type] ? () => pager.goToRoom(eventRoom[e.type]!) : undefined}
-              last={i === arr.length - 1}
-            />
+              accessibilityRole={eventRoom[e.type] ? 'button' : undefined}
+              disabled={!eventRoom[e.type]}
+              onPress={() => eventRoom[e.type] && pager.goToRoom(eventRoom[e.type]!)}
+              style={({ pressed }) => [styles.event, pressed && { opacity: 0.7 }]}>
+              <T style={styles.eventTime}>{formatClock(e.at)}</T>
+              <T style={styles.eventText} numberOfLines={1}>
+                {e.title}
+              </T>
+              <T style={styles.eventAgo}>{relativeTime(e.at, now)}</T>
+            </Pressable>
           ))
         ) : (
-          <T variant="small">{timeline.status === 'ready' ? 'Nothing logged yet. Notes you add in the rooms show up here.' : 'Loading…'}</T>
+          <T style={styles.muted}>{timeline.status === 'error' ? 'Couldn’t load the log.' : timeline.status === 'ready' ? 'Nothing logged yet. What you log in the rooms shows up here.' : 'Loading…'}</T>
         )}
-      </Section>
-
-      {saved.items.length ? (
-        <Section title="Saved for later" action={{ label: 'See all', onPress: () => router.push('/settings/saved') }}>
-          {saved.items.slice(0, 2).map((x, i, arr) => (
-            <ListRow key={x.id} icon="bookmark" title={x.title} subtitle={`Saved ${relativeTime(x.savedAt, now)}`} last={i === arr.length - 1} />
-          ))}
-        </Section>
-      ) : null}
+      </LcdPanel>
 
       <Pressable
         accessibilityRole="button"
@@ -168,41 +149,99 @@ export function HomePage() {
   );
 }
 
-function todaySentence(name: string, s: DashboardSummary) {
-  const parts = [
-    s.todaySleepMinutes ? `${name} has about ${hm(s.todaySleepMinutes)} of logged sleep.` : 'No finished sleep logged yet today.',
-    s.feedingsToday ? `${s.feedingsToday} feed${s.feedingsToday === 1 ? '' : 's'} logged${s.lastFeedingAt ? `, the latest at ${formatClock(s.lastFeedingAt)}` : ''}.` : 'No feeds logged yet.',
-    s.diapersToday ? `${s.diapersToday} diaper change${s.diapersToday === 1 ? '' : 's'}.` : '',
-  ];
-  return parts.filter(Boolean).join(' ');
+/** "▲ 40m" / "▼ 2" / "same" against the previous 24 hours. Direction only; never good or bad. */
+function change(now: WindowStats, before: WindowStats, key: keyof WindowStats) {
+  const d = now[key] - before[key];
+  if (!now[key] && !before[key]) return '—';
+  if (d === 0) return 'same as day before';
+  const amount = key === 'sleepMinutes' ? hm(Math.abs(d)) : String(Math.abs(d));
+  return `${d > 0 ? '▲' : '▼'} ${amount} vs day before`;
 }
 
-function RoomTile({ id, note, onPress }: { id: RoomId; note: string; onPress: () => void }) {
+function Delta({ label, value, delta }: { label: string; value: string; delta: string }) {
+  return (
+    <View style={styles.delta} accessible accessibilityLabel={`${label}: ${value}. ${delta}`}>
+      <T style={styles.deltaLabel}>{label}</T>
+      <T style={styles.deltaValue}>{value}</T>
+      <T style={styles.deltaChange} numberOfLines={2}>
+        {delta}
+      </T>
+    </View>
+  );
+}
+
+function CamTile({ id, index, note, onPress }: { id: RoomId; index: number; note?: string; onPress: () => void }) {
   const room = ROOMS[id];
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Go to the ${room.name}: ${note}`}
+      accessibilityLabel={`Go to the ${room.name}`}
       onPress={() => {
         haptic.soft();
         onPress();
       }}
-      style={({ pressed }) => [styles.tile, shadow.soft, pressed && { transform: [{ scale: 0.985 }] }]}>
-      <RoomThumb art={room.art} crop={room.crop} height={124} />
-      <View style={styles.tileText}>
-        <T style={styles.tileName}>{room.name}</T>
-        <T variant="caption">{note}</T>
+      style={({ pressed }) => [styles.cam, pressed && { transform: [{ scale: 0.98 }] }]}>
+      <RoomThumb art={room.art} crop={room.crop} height={96} />
+      <Scanlines opacity={0.14} />
+      <View style={styles.camOsd} pointerEvents="none">
+        <View style={styles.led}>
+          <View style={[styles.ledDot, { backgroundColor: screen.green }]} />
+          <T style={styles.camText}>CAM {index + 1}</T>
+        </View>
+        <T style={styles.camText}>{note ?? room.name}</T>
       </View>
     </Pressable>
   );
 }
 
+function SupportTile() {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Ask a question"
+      onPress={() => {
+        haptic.soft();
+        router.push('/support/ask');
+      }}
+      style={({ pressed }) => [styles.cam, styles.support, pressed && { transform: [{ scale: 0.98 }] }]}>
+      <T style={styles.camText}>Need a hand?</T>
+      <View style={styles.askKey}>
+        <Icon name="support" size={16} color="#2A211A" />
+        <T style={styles.askText}>Ask</T>
+      </View>
+      <Scanlines opacity={0.12} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  baby: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  live: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.lg, backgroundColor: colors.night },
-  tile: { flex: 1, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.warmWhite },
-  tileText: { padding: space.sm, gap: 1 },
-  tileName: { fontFamily: fonts.display, fontSize: 17, lineHeight: 22, color: colors.charcoal },
-  back: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, marginTop: space.sm },
+  deviceHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingTop: 4 },
+  brand: { fontFamily: fonts.lcd, fontSize: 12, letterSpacing: 2, color: '#8F8371', textTransform: 'uppercase' },
+  babyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  led: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ledDot: { width: 7, height: 7, borderRadius: 4 },
+  ledText: { fontFamily: fonts.lcd, fontSize: 12, letterSpacing: 1.2, color: screen.muted, textTransform: 'uppercase' },
+  name: { fontFamily: fonts.lcd, fontSize: 26, lineHeight: 30, color: screen.amber, textShadowColor: 'rgba(242,201,138,0.5)', textShadowRadius: 8 },
+  muted: { fontFamily: fonts.body, fontSize: 12.5, lineHeight: 17, color: screen.muted },
+  summary: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: screen.ink },
+  statRow: { flexDirection: 'row', gap: 6 },
+  delta: { flex: 1, backgroundColor: screen.card, borderRadius: 8, padding: 8, gap: 1, borderWidth: 1, borderColor: 'rgba(242,201,138,0.08)' },
+  deltaLabel: { fontFamily: fonts.lcd, fontSize: 10.5, letterSpacing: 0.8, color: screen.muted, textTransform: 'uppercase' },
+  deltaValue: { fontFamily: fonts.lcd, fontSize: 20, color: screen.amber },
+  deltaChange: { fontFamily: fonts.body, fontSize: 11, lineHeight: 14, color: screen.muted },
+  statsLink: { flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-end', minHeight: 24 },
+  statsLinkText: { fontFamily: fonts.lcd, fontSize: 11.5, letterSpacing: 1, color: screen.muted, textTransform: 'uppercase' },
+  cams: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  cam: { width: '48.4%', height: 96, borderRadius: 12, overflow: 'hidden', borderWidth: 4, borderColor: '#14110E', backgroundColor: screen.bg },
+  camOsd: { position: 'absolute', left: 8, right: 8, top: 6, bottom: 6, justifyContent: 'space-between' },
+  camText: { fontFamily: fonts.lcd, fontSize: 11, letterSpacing: 1, color: screen.ink, textTransform: 'uppercase', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 3 },
+  support: { padding: 10, justifyContent: 'space-between' },
+  askKey: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 38, borderRadius: 8, backgroundColor: screen.amber },
+  askText: { fontFamily: fonts.lcd, fontSize: 15, letterSpacing: 1, color: '#2A211A', textTransform: 'uppercase' },
+  event: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 32 },
+  eventTime: { fontFamily: fonts.lcd, fontSize: 13, color: screen.amber, width: 66 },
+  eventText: { flex: 1, fontFamily: fonts.body, fontSize: 13.5, color: screen.ink },
+  eventAgo: { fontFamily: fonts.lcd, fontSize: 11, color: screen.muted },
+  back: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, borderTopWidth: 1, borderTopColor: BEZEL_EDGE },
   backText: { fontFamily: fonts.bodySemibold, fontSize: 14, color: colors.ink2 },
 });

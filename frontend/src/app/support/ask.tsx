@@ -6,6 +6,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { Icon } from '@/components/icons';
 import { Button, ChipRow, LoadingState, Notice, Panel, Screen, Section, SourceLink, T, TextField } from '@/components/ui';
 import { categoryLabel, ExpertCard } from '@/features/support/ExpertCard';
+import { ProLinks } from '@/features/support/ProLinks';
 import { UrgentHelp } from '@/features/support/UrgentHelp';
 import { remote } from '@/services';
 import { stores, useCatalog } from '@/state';
@@ -154,6 +155,7 @@ export default function Ask() {
         ) : null}
       </View>
       <T variant="caption">Nurture suggests kinds of support; it doesn’t diagnose, and your question isn’t sent to anyone yet.</T>
+      <ProLinks />
     </Screen>
   );
 }

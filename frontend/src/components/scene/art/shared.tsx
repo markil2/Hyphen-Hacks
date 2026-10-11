@@ -20,9 +20,40 @@ export const seamY = (x: number) => SEAM.left + ((SEAM.right - SEAM.left) * x) /
 
 export const pts = (...p: [number, number][]) => p.map(([x, y]) => `${x},${y}`).join(' ');
 
-/** A soft ellipse shadow where an object meets the floor. */
+/**
+ * Where an object meets the floor: a tight, dark occlusion core right at the
+ * base (so it reads as resting, not hovering) inside a wider soft penumbra.
+ */
 export function ContactShadow({ cx, cy, rx, ry, opacity = 0.45, id }: { cx: number; cy: number; rx: number; ry: number; opacity?: number; id: string }) {
-  return <Ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={`url(#${id})`} opacity={opacity} />;
+  return (
+    <G>
+      <Ellipse cx={cx + rx * 0.06} cy={cy + ry * 0.2} rx={rx * 1.1} ry={ry * 1.2} fill={`url(#${id})`} opacity={opacity * 0.6} />
+      <Ellipse cx={cx} cy={cy - ry * 0.15} rx={rx * 0.8} ry={ry * 0.42} fill={`url(#${id})`} opacity={Math.min(1, opacity * 1.5)} />
+    </G>
+  );
+}
+
+/**
+ * A grounded shadow along a straight base edge (counters, dressers, fridges):
+ * darkest right at the edge, fading out across the floor toward the camera.
+ */
+export function BaseShadow({ from, to, depth = 14, opacity = 0.5 }: { from: [number, number]; to: [number, number]; depth?: number; opacity?: number }) {
+  const band = (d: number, o: number, spread: number, key: string) => (
+    <Polygon
+      key={key}
+      points={pts(from, to, [to[0] + spread, to[1] + d], [from[0] - spread, from[1] + d])}
+      fill="#120A05"
+      opacity={o}
+    />
+  );
+  return (
+    <G>
+      {band(depth, opacity * 0.18, 10, 'a')}
+      {band(depth * 0.6, opacity * 0.25, 6, 'b')}
+      {band(depth * 0.3, opacity * 0.4, 3, 'c')}
+      {band(3, opacity * 0.7, 1, 'd')}
+    </G>
+  );
 }
 
 export function shadowGradient(id: string) {
@@ -63,23 +94,33 @@ export function ambientDefs(p: string) {
   return (
     <>
       <LinearGradient id={`${p}-ceiling`} x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor="#1A100A" stopOpacity="0.34" />
+        <Stop offset="0" stopColor="#1A100A" stopOpacity="0.42" />
         <Stop offset="1" stopColor="#1A100A" stopOpacity="0" />
       </LinearGradient>
       <LinearGradient id={`${p}-aoWall`} x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0" stopColor="#1A100A" stopOpacity="0" />
-        <Stop offset="1" stopColor="#1A100A" stopOpacity="0.22" />
+        <Stop offset="1" stopColor="#1A100A" stopOpacity="0.3" />
       </LinearGradient>
       <LinearGradient id={`${p}-aoFloor`} x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor="#120A05" stopOpacity="0.38" />
+        <Stop offset="0" stopColor="#120A05" stopOpacity="0.46" />
         <Stop offset="1" stopColor="#120A05" stopOpacity="0" />
       </LinearGradient>
       <RadialGradient id={`${p}-vignette`} cx="55%" cy="40%" r="75%">
         <Stop offset="0.55" stopColor="#120A05" stopOpacity="0" />
-        <Stop offset="1" stopColor="#120A05" stopOpacity="0.42" />
+        <Stop offset="1" stopColor="#120A05" stopOpacity="0.52" />
       </RadialGradient>
     </>
   );
+}
+
+/** The floor under an object, between its front and back footprint edges: darker than open floor. */
+export function Footprint({ p, opacity = 0.35 }: { p: [number, number][]; opacity?: number }) {
+  return <Polygon points={pts(...p)} fill="#120A05" opacity={opacity} />;
+}
+
+/** Where a leg meets the floor: a small, dark, flattened contact spot. */
+export function FootDot({ x, y, r = 4, opacity = 0.55 }: { x: number; y: number; r?: number; opacity?: number }) {
+  return <Ellipse cx={x} cy={y} rx={r} ry={r * 0.38} fill="#120A05" opacity={opacity} />;
 }
 
 /** Back wall + floor + baseboard, in one call. Pass `ambient` (the defs prefix) for soft room lighting. */

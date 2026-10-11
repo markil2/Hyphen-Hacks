@@ -1,4 +1,6 @@
 import type {
+  BabyHealthEntry,
+  MomMeasurement,
   Baby,
   Consultation,
   ConsultationStatus,
@@ -20,6 +22,8 @@ import type {
 import type { NewRecord } from '../types';
 import type {
   ApiBaby,
+  ApiBabyHealth,
+  ApiMomMeasurement,
   ApiConsultation,
   ApiDiaper,
   ApiExpert,
@@ -207,3 +211,47 @@ export function fromTimeline(e: ApiTimelineEvent): TimelineEvent {
   };
   return { type: e.type, at: e.timestamp, title: titles[e.type]?.() ?? e.type };
 }
+
+const severities = ['mild', 'moderate', 'severe'] as const;
+
+export const fromBabyHealth = (h: ApiBabyHealth): BabyHealthEntry => ({
+  id: h.id,
+  origin: 'api',
+  type: h.type,
+  at: h.observedAt,
+  value: opt(h.value),
+  unit: opt(h.unit),
+  severity: severities.find((s) => s === h.severity),
+  notes: opt(h.notes),
+});
+
+export const toBabyHealth = (h: Partial<NewRecord<BabyHealthEntry>>) => ({
+  ...(h.type && { type: h.type }),
+  ...(h.at && { observedAt: h.at }),
+  ...(h.value !== undefined && { value: h.value }),
+  ...(h.unit !== undefined && { unit: h.unit || null }),
+  ...(h.severity !== undefined && { severity: h.severity }),
+  ...(h.notes !== undefined && { notes: h.notes || null }),
+});
+
+export const fromMomMeasurement = (x: ApiMomMeasurement): MomMeasurement => ({
+  id: x.id,
+  origin: 'api',
+  type: x.type,
+  at: x.measuredAt,
+  value: opt(x.value),
+  unit: opt(x.unit),
+  systolic: opt(x.systolic),
+  diastolic: opt(x.diastolic),
+  notes: opt(x.notes),
+});
+
+export const toMomMeasurement = (x: Partial<NewRecord<MomMeasurement>>) => ({
+  ...(x.type && { type: x.type }),
+  ...(x.at && { measuredAt: x.at }),
+  ...(x.value !== undefined && { value: x.value }),
+  ...(x.unit !== undefined && { unit: x.unit }),
+  ...(x.systolic !== undefined && { systolic: x.systolic }),
+  ...(x.diastolic !== undefined && { diastolic: x.diastolic }),
+  ...(x.notes !== undefined && { notes: x.notes || null }),
+});

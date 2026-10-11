@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ambientDefs, ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
+import { ambientDefs, BaseShadow, ContactShadow, Floorboards, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The play corner: a round mat with a few toys, a low bookshelf, a wooden growth board. */
 
@@ -10,7 +10,58 @@ export const PLAY = {
   mat: rect(70, 380, 250, 120),
   books: rect(28, 236, 140, 100),
   growth: rect(300, 100, 50, 236),
+  scale: rect(214, 270, 94, 112),
 };
+
+/** A baby scale: a curved tray on a base with a little display. Drawn at floor scale; ScaleCounter places it. */
+function Scale() {
+  return (
+    <G>
+      <Ellipse cx={327} cy={390} rx={38} ry={5} fill="rgba(40,26,14,0.3)" />
+      {/* base */}
+      <Quad p={[[296, 362], [364, 371], [358, 384], [290, 375]]} fill="#F3EDE2" />
+      <Quad p={[[290, 375], [358, 384], [358, 394], [290, 385]]} fill="#DCD3C4" />
+      <Quad p={[[358, 384], [364, 371], [364, 381], [358, 394]]} fill="#C9BFAE" />
+      {/* display */}
+      <Quad p={[[316, 379.6], [337, 382.4], [337, 389.4], [316, 386.6]]} fill="#1B1815" />
+      <Path d="M319 383.4 L323 383.9 M325 384.2 L329 384.7 M331 385 L334 385.4" stroke="#F2C98A" strokeWidth={2.2} />
+      {/* curved tray */}
+      <Path d="M290 352 Q296 370 327 372 Q358 374 368 360 L362 366 Q352 380 327 378 Q300 376 294 360 Z" fill="#B7C3B2" />
+      <Path d="M290 352 Q327 344 368 360 Q358 374 327 372 Q296 370 290 352 Z" fill="#A4B19F" />
+      <Path d="M298 354 Q327 349 360 361" stroke="rgba(255,255,255,0.45)" strokeWidth={1.4} fill="none" />
+    </G>
+  );
+}
+
+/** A small sage cabinet beside the growth board, with the baby scale on top. */
+function ScaleCounter() {
+  const L = 214;
+  const R = 292;
+  const k = 0.133;
+  const fy = (x: number, y0: number) => y0 + (x - L) * k;
+  const D: [number, number] = [14, -34];
+  return (
+    <G>
+      <BaseShadow from={[L - 3, fy(L, 380)]} to={[R + D[0] + 2, fy(R, 380) - 2]} depth={12} opacity={0.55} />
+      {/* right side */}
+      <Quad p={[[R, fy(R, 322)], [R + D[0], fy(R, 322) + D[1]], [R + D[0], fy(R, 380) + D[1]], [R, fy(R, 380)]]} fill="#6C7A68" />
+      {/* front with two doors */}
+      <Quad p={[[L, fy(L, 322)], [R, fy(R, 322)], [R, fy(R, 380)], [L, fy(L, 380)]]} fill="#879783" />
+      <Path d={`M${(L + R) / 2} ${fy((L + R) / 2, 328)} V${fy((L + R) / 2, 374)}`} stroke="#6C7A68" strokeWidth={1.4} />
+      {[L + 30, R - 33].map((x) => (
+        <SvgRect key={x} x={x} y={fy(x, 344)} width={3} height={12} rx={1.5} fill={wood.top} />
+      ))}
+      <Quad p={[[L, fy(L, 376)], [R, fy(R, 376)], [R, fy(R, 380)], [L, fy(L, 380)]]} fill="#4E5A4B" />
+      {/* wooden top */}
+      <Quad p={[[L, fy(L, 322)], [R, fy(R, 322)], [R + D[0], fy(R, 322) + D[1]], [L + D[0], fy(L, 322) + D[1]]]} fill="#D8C2A2" />
+      <Quad p={[[L, fy(L, 322)], [R, fy(R, 322)], [R, fy(R, 327)], [L, fy(L, 327)]]} fill={wood.face} />
+      {/* the scale, sitting on the top */}
+      <G transform="translate(260 306) scale(0.74) translate(-329 -380)">
+        <Scale />
+      </G>
+    </G>
+  );
+}
 
 function GrowthBoard() {
   const marks = [];
@@ -33,7 +84,7 @@ function GrowthBoard() {
 function LowShelf() {
   return (
     <G>
-      <ContactShadow id="ply-shadow" cx={98} cy={338} rx={76} ry={9} opacity={0.75} />
+      <BaseShadow from={[32, 316]} to={[168, 334]} depth={12} opacity={0.55} />
       <Quad p={[[34, 244], [166, 262], [166, 334], [34, 316]]} fill={wood.face} />
       <Quad p={[[34, 244], [166, 262], [170, 256], [38, 238]]} fill={wood.top} />
       <Quad p={[[40, 254], [160, 270], [160, 290], [40, 274]]} fill="#5A4130" />
@@ -109,6 +160,7 @@ export const playArt: RoomArt = {
           <Shell wallId="ply-wall" floorId="ply-floor" baseboard="#DCCBB2" ambient="ply" />
           <Floorboards />
           <GrowthBoard />
+          <ScaleCounter />
           {/* bunting, quiet */}
           <Path d="M60 150 Q170 184 280 166" stroke="#A57E58" strokeWidth={1} fill="none" />
           {[90, 130, 170, 210, 250].map((x, i) => (

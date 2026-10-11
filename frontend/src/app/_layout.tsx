@@ -1,5 +1,6 @@
 import { Lora_400Regular, Lora_400Regular_Italic, Lora_600SemiBold, useFonts } from '@expo-google-fonts/lora';
 import { NunitoSans_400Regular, NunitoSans_600SemiBold, NunitoSans_700Bold } from '@expo-google-fonts/nunito-sans';
+import { ShareTechMono_400Regular } from '@expo-google-fonts/share-tech-mono';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -22,6 +23,7 @@ export default function RootLayout() {
     Lora_600SemiBold,
     NunitoSans_400Regular,
     NunitoSans_600SemiBold,
+    ShareTechMono_400Regular,
     NunitoSans_700Bold,
   });
 
@@ -37,6 +39,7 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.cream }, animation: 'fade', animationDuration: 260 }}>
           <Stack.Screen name="index" />
+          <Stack.Screen name="stats" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="nursery/sessions" options={{ animation: 'slide_from_right', contentStyle: { backgroundColor: '#1B1815' } }} />
           <Stack.Screen name="settings/baby" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="nursery/edit" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />

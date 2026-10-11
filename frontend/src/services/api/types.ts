@@ -136,3 +136,24 @@ export interface ApiTimelineEvent {
   timestamp: string;
   data: Record<string, unknown>;
 }
+
+export interface ApiBabyHealth {
+  id: string;
+  type: 'temperature' | 'symptom' | 'medication' | 'appointment' | 'general';
+  value: number | null;
+  unit: string | null;
+  severity: string | null;
+  notes: string | null;
+  observedAt: string;
+}
+
+export interface ApiMomMeasurement {
+  id: string;
+  type: 'weight' | 'blood_pressure' | 'blood_glucose';
+  value: number | null;
+  unit: 'kg' | 'lb' | 'mg/dL' | 'mmol/L' | null;
+  systolic: number | null;
+  diastolic: number | null;
+  measuredAt: string;
+  notes: string | null;
+}

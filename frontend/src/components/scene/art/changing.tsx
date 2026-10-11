@@ -2,7 +2,7 @@ import { Circle, Ellipse, G, LinearGradient, Path, Rect as SvgRect, Stop } from 
 
 import { rect } from '../geometry';
 import type { RoomArt } from '../RoomScene';
-import { ambientDefs, ContactShadow, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
+import { ambientDefs, BaseShadow, glowGradient, Quad, shadowGradient, Shell, Vignette, wallGradient, wood } from './shared';
 
 /** The changing area: a wooden dresser with a changing pad, a basket, folded cloths. */
 
@@ -24,7 +24,8 @@ function Dresser() {
   };
   return (
     <G>
-      <ContactShadow id="chg-shadow" cx={222} cy={400} rx={110} ry={14} opacity={0.75} />
+      <BaseShadow from={[133, 372]} to={[302, 394]} depth={14} opacity={0.55} />
+      <BaseShadow from={[301, 394]} to={[316, 357]} depth={7} opacity={0.4} />
       {/* top */}
       <Quad p={[[150, 236], [314, 258], [300, 294], [136, 272]]} fill={wood.top} />
       {/* front */}
@@ -46,7 +47,7 @@ function Dresser() {
 function Basket() {
   return (
     <G>
-      <ContactShadow id="chg-shadow" cx={76} cy={442} rx={50} ry={9} opacity={0.75} />
+      <BaseShadow from={[42, 432]} to={[112, 440]} depth={9} opacity={0.5} />
       <Path d="M36 384 L118 394 L110 440 L44 432 Z" fill="#C9A57C" />
       {[0, 1, 2, 3].map((i) => (
         <Path key={i} d={`M${38 + i * 0.5} ${394 + i * 11} L${116 - i * 2} ${404 + i * 11}`} stroke="#A57E58" strokeWidth={1.4} />
@@ -73,10 +74,11 @@ function WallShelf() {
       <SvgRect x={262} y={172} width={16} height={14} rx={2} fill="#F2ECE1" />
       <Ellipse cx={266} cy={166} rx={6} ry={9} fill="#879783" />
       <Ellipse cx={275} cy={164} rx={5} ry={8} fill="#6F7D6B" />
-      {/* round mirror */}
-      <Circle cx={92} cy={170} r={34} fill={wood.face} />
-      <Circle cx={92} cy={170} r={30} fill="#DCE3E8" />
-      <Path d="M76 160 Q86 150 98 150" stroke="#F5F0E7" strokeWidth={3} strokeLinecap="round" fill="none" />
+      {/* a small framed print */}
+      <SvgRect x={70} y={146} width={44} height={54} rx={2} fill={wood.face} />
+      <SvgRect x={74} y={150} width={36} height={46} fill="#E6DCC8" />
+      <Circle cx={92} cy={166} r={7} fill="#B9826B" opacity={0.8} />
+      <Path d="M78 190 Q92 176 106 190 Z" fill="#879783" />
     </G>
   );
 }

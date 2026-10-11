@@ -1,6 +1,14 @@
 import type {
   Account,
   Baby,
+  BabyHealthEntry,
+  BabyStats,
+  BabySummary,
+  FamilyNote,
+  FoodHit,
+  HormoneEntry,
+  MomMeasurement,
+  RecipeIdeas,
   Consultation,
   ConsultationStatus,
   ContactOptions,
@@ -17,7 +25,9 @@ import type {
   RecordedMilestone,
   Resource,
   SleepSession,
+  ShopProduct,
   TimelineEvent,
+  WeightMeasurement,
 } from '@/types';
 
 import type { Catalog, DocRepo, Repo } from './types';
@@ -34,7 +44,23 @@ export interface RemoteServices {
   feedings: Repo<FeedingEntry>;
   diapers: Repo<DiaperEntry>;
   heights: Repo<HeightMeasurement>;
+  weights: Repo<WeightMeasurement>;
   milestones: Repo<RecordedMilestone>;
+  babyHealth: Repo<BabyHealthEntry>;
+  momHealth: Repo<MomMeasurement>;
+  hormones: Repo<HormoneEntry>;
+  notes: Repo<FamilyNote>;
+  ai: {
+    recipeIdeas(): Promise<RecipeIdeas>;
+    babySummary(): Promise<BabySummary>;
+  };
+  foods: {
+    search(q: string, babyOnly: boolean): Promise<FoodHit[]>;
+    shop(): Promise<{ items: ShopProduct[]; notice: string }>;
+  };
+  stats: {
+    get(days: number): Promise<BabyStats>;
+  };
   questions: Catalog<Question>;
   consultations: Catalog<Consultation> & { setStatus(id: string, status: ConsultationStatus): Promise<Consultation> };
   experts: Catalog<Expert>;

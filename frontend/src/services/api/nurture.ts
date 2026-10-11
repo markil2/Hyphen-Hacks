@@ -1,4 +1,4 @@
-import type { BaseRecord, ContactOption } from '@/types';
+import type { BabyStats, FoodHit, ShopProduct, BabySummary, BaseRecord, ContactOption, FamilyNote, HormoneEntry, MomMeasurement, NoteColor, RecipeIdeas, WeightMeasurement } from '@/types';
 
 import type { RemoteServices } from '../contracts';
 import type { NewRecord, Repo } from '../types';
@@ -6,6 +6,8 @@ import { api, ApiError, Page } from './client';
 import * as m from './map';
 import type {
   ApiBaby,
+  ApiBabyHealth,
+  ApiMomMeasurement,
   ApiConsultation,
   ApiDashboard,
   ApiDiaper,
@@ -66,6 +68,8 @@ function babyRepo<T extends BaseRecord, A>(opts: {
   };
 }
 
+type ApiWeight = { id: string; weight: number; unit: 'kg' | 'lb'; measuredAt: string; notes: string | null };
+
 export function remoteServices(): RemoteServices {
   return {
     mode: 'api',
@@ -124,6 +128,19 @@ export function remoteServices(): RemoteServices {
       unwrap: (a) => (a as { measurement: ApiHeight }).measurement,
     }),
 
+    weights: babyRepo({
+      path: 'weights',
+      item: 'weights',
+      from: (w: ApiWeight): WeightMeasurement => ({ id: w.id, origin: 'api', weight: w.weight, unit: w.unit, measuredAt: w.measuredAt, notes: w.notes ?? undefined }),
+      to: (w) => ({
+        ...(w.weight !== undefined && { weight: w.weight }),
+        ...(w.unit && { unit: w.unit }),
+        ...(w.measuredAt && { measuredAt: w.measuredAt }),
+        ...(w.notes !== undefined && { notes: w.notes || null }),
+      }),
+      unwrap: (a) => (a as { measurement: ApiWeight }).measurement,
+    }),
+
     milestones: babyRepo({
       path: 'milestones',
       item: 'milestones',
@@ -131,6 +148,43 @@ export function remoteServices(): RemoteServices {
       to: m.toMilestone,
       unwrap: (a) => (a as { milestone: ApiMilestone }).milestone,
     }),
+
+    babyHealth: babyRepo({
+      path: 'health',
+      item: 'baby-health',
+      from: (h: ApiBabyHealth) => m.fromBabyHealth(h),
+      to: m.toBabyHealth,
+      unwrap: (a) => (a as { observation: ApiBabyHealth }).observation,
+    }),
+
+    momHealth: momHealthRepo(),
+    hormones: hormonesRepo(),
+    notes: notesRepo(),
+
+    ai: {
+      async recipeIdeas() {
+        return api<RecipeIdeas>('recipes/ideas', { method: 'POST', body: {} });
+      },
+      async babySummary() {
+        const s = await api<BabySummary>(`babies/${await babyId()}/summary`);
+        return { summary: s.summary, source: s.source };
+      },
+    },
+
+    foods: {
+      async search(q, babyOnly) {
+        return (await api<{ items: FoodHit[] }>('foods/search', { query: { q, baby: String(babyOnly) } })).items;
+      },
+      async shop() {
+        return api<{ items: ShopProduct[]; notice: string }>('shop/products');
+      },
+    },
+
+    stats: {
+      async get(days) {
+        return api<BabyStats>(`babies/${await babyId()}/stats`, { query: { days, timezoneOffsetMinutes: new Date().getTimezoneOffset() } });
+      },
+    },
 
     questions: {
       async list() {
@@ -243,6 +297,109 @@ export function remoteServices(): RemoteServices {
 
     async health() {
       return api<{ status: string; demoMode: boolean }>('health');
+    },
+  };
+}
+
+/**
+ * The parent's own measurements. The backend keeps them under a maternal profile;
+ * the first time a parent records one, a postpartum profile is set up for them.
+ */
+function momHealthRepo(): Repo<MomMeasurement> {
+  const isMissingProfile = (e: unknown) => e instanceof ApiError && e.code === 'MATERNAL_PROFILE_NOT_FOUND';
+  const post = (input: NewRecord<MomMeasurement>) =>
+    api<{ measurement: ApiMomMeasurement }>('maternal/health', { method: 'POST', body: m.toMomMeasurement(input) });
+  return {
+    async list() {
+      try {
+        return (await api<Page<ApiMomMeasurement>>('maternal/health', { query: LIST })).items.map(m.fromMomMeasurement);
+      } catch (e) {
+        if (isMissingProfile(e)) return [];
+        throw e;
+      }
+    },
+    async create(input) {
+      try {
+        return m.fromMomMeasurement((await post(input)).measurement);
+      } catch (e) {
+        if (!isMissingProfile(e)) throw e;
+        await api('maternal/profile', { method: 'PUT', body: { trackingMode: 'postpartum' } });
+        return m.fromMomMeasurement((await post(input)).measurement);
+      }
+    },
+    async update() {
+      throw new ApiError('Measurements can’t be edited. Remove it and add it again.', 400, 'NOT_EDITABLE');
+    },
+    async remove(id) {
+      await api(`maternal/health/${id}`, { method: 'DELETE' });
+    },
+  };
+}
+
+/** Creates the parent's postpartum profile the first time they record something, then retries. */
+async function withProfile<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (e) {
+    if (!(e instanceof ApiError && e.code === 'MATERNAL_PROFILE_NOT_FOUND')) throw e;
+    await api('maternal/profile', { method: 'PUT', body: { trackingMode: 'postpartum' } });
+    return run();
+  }
+}
+
+type ApiHormone = { id: string; hormone: HormoneEntry['hormone']; value: number; unit: string; source: HormoneEntry['source']; measuredAt: string; notes: string | null };
+const fromHormone = (h: ApiHormone): HormoneEntry => ({ id: h.id, origin: 'api', hormone: h.hormone, value: h.value, unit: h.unit, source: h.source, at: h.measuredAt, notes: h.notes ?? undefined });
+
+function hormonesRepo(): Repo<HormoneEntry> {
+  return {
+    async list() {
+      try {
+        return (await api<Page<ApiHormone>>('maternal/hormones', { query: LIST })).items.map(fromHormone);
+      } catch (e) {
+        if (e instanceof ApiError && e.code === 'MATERNAL_PROFILE_NOT_FOUND') return [];
+        throw e;
+      }
+    },
+    async create(input) {
+      const body = { hormone: input.hormone, value: input.value, unit: input.unit, source: input.source, measuredAt: input.at, notes: input.notes || null };
+      return fromHormone((await withProfile(() => api<{ measurement: ApiHormone }>('maternal/hormones', { method: 'POST', body }))).measurement);
+    },
+    async update() {
+      throw new ApiError('Results can’t be edited. Remove it and add it again.', 400, 'NOT_EDITABLE');
+    },
+    async remove(id) {
+      await api(`maternal/hormones/${id}`, { method: 'DELETE' });
+    },
+  };
+}
+
+// Notes live on the family; the demo parent belongs to one.
+let familyIdPromise: Promise<string> | null = null;
+function familyId() {
+  familyIdPromise ??= api<{ family: { id: string } }[]>('families').then((f) => {
+    if (!f.length) throw new ApiError('You’re not part of a family yet.', 404, 'NO_FAMILY');
+    return f[0].family.id;
+  });
+  familyIdPromise.catch(() => (familyIdPromise = null));
+  return familyIdPromise;
+}
+
+type ApiNote = { id: string; body: string; color: NoteColor; createdAt: string; mine: boolean; author: { name: string } };
+const fromNote = (n: ApiNote): FamilyNote => ({ id: n.id, origin: 'api', body: n.body, color: n.color, createdAt: n.createdAt, mine: n.mine, authorName: n.author.name });
+
+function notesRepo(): Repo<FamilyNote> {
+  return {
+    async list() {
+      return (await api<{ items: ApiNote[] }>(`families/${await familyId()}/notes`)).items.map(fromNote);
+    },
+    async create(input) {
+      return fromNote((await api<{ note: ApiNote }>(`families/${await familyId()}/notes`, { method: 'POST', body: { body: input.body, color: input.color } })).note);
+    },
+    async update() {
+      throw new ApiError('Notes can’t be edited. Take it down and write a new one.', 400, 'NOT_EDITABLE');
+    },
+    async remove(id) {
+      await api(`notes/${id}`, { method: 'DELETE' });
     },
   };
 }

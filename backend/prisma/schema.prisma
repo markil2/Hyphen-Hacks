@@ -21,6 +21,7 @@ model User {
   consultationRequests ConsultationRequest[]
   maternalProfile      MaternalProfile?
   familyMemberships    FamilyMembership[]
+  familyNotes          FamilyNote[]
   emailTokens          AccountEmailToken[]
   privacyConsents      PrivacyConsent[]
 }
@@ -33,6 +34,21 @@ model Family {
   memberships FamilyMembership[]
   invitations FamilyInvitation[]
   babies      Baby[]
+  notes       FamilyNote[]
+}
+
+/// A note on the family fridge: short messages between the baby's parents and caregivers.
+model FamilyNote {
+  id        String   @id @default(cuid())
+  familyId  String
+  authorId  String
+  body      String
+  color     String   @default("cream")
+  createdAt DateTime @default(now())
+  family    Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([familyId, createdAt])
 }
 
 model FamilyMembership {
@@ -196,6 +212,7 @@ model Baby {
   diaperChanges DiaperChange[]
   questions     ParentQuestion[]
   heightMeasurements BabyHeightMeasurement[]
+  weightMeasurements BabyWeightMeasurement[]
   milestones          DevelopmentalMilestone[]
   healthObservations  BabyHealthObservation[]
 
@@ -229,6 +246,20 @@ model BabyHealthObservation {
   baby       Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
 
   @@index([babyId, type, observedAt])
+}
+
+/// A weight the parent recorded on the baby scale. Stored as entered; never scored.
+model BabyWeightMeasurement {
+  id         String   @id @default(cuid())
+  babyId     String
+  weight     Float
+  unit       String
+  measuredAt DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+  baby       Baby     @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, measuredAt])
 }
 
 model BabyHeightMeasurement {

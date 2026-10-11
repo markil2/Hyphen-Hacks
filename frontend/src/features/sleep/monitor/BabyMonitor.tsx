@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { Icon } from '@/components/icons';
+import { BEZEL, BEZEL_EDGE, Grille, Scanlines } from '@/components/scene/Console';
 import { T } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
 import { easeOut, useCalmMotion } from '@/lib/motion';
@@ -16,8 +17,6 @@ import type { useSessionFlow } from '../useSessionFlow';
 import { NightVisionFeed } from './NightVisionFeed';
 import { screen, SleepDashboard } from './SleepDashboard';
 
-const BEZEL = '#EFE8DC';
-const BEZEL_EDGE = '#DCD3C4';
 
 /**
  * The baby monitor, adapted from the reference render: a warm-white device slides
@@ -73,7 +72,7 @@ export function BabyMonitor({ flow, onClosed }: { flow: ReturnType<typeof useSes
       </Animated.View>
 
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24, paddingHorizontal: 12 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8, paddingHorizontal: 12 }}
         showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.device, shadow.lifted, device]}>
           {/* hinge on the left edge, as on the real device */}
@@ -89,6 +88,7 @@ export function BabyMonitor({ flow, onClosed }: { flow: ReturnType<typeof useSes
           {/* Camera screen */}
           <View style={styles.screen} accessible accessibilityRole="image" accessibilityLabel="Monitor view of the crib: your baby, swaddled, with a soft bunny. Illustration, not a live camera.">
             <NightVisionFeed />
+            <Scanlines opacity={0.18} />
             <View style={styles.osdTop} pointerEvents="none">
               <View>
                 <View style={styles.live}>
@@ -110,26 +110,12 @@ export function BabyMonitor({ flow, onClosed }: { flow: ReturnType<typeof useSes
             </T>
           </View>
 
-          {/* Physical keys: only the ones that do something */}
+          {/* Speaker and status LED. The lamp in the room is the only sleep switch. */}
           <View style={styles.keys}>
-            <View style={styles.grille} aria-hidden>
-              {Array.from({ length: 21 }).map((_, i) => (
-                <View key={i} style={styles.hole} />
-              ))}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={flow.active ? 'Lamp: end the sleep session' : 'Lamp: start a sleep session'}
-              disabled={flow.busy}
-              onPress={() => {
-                haptic.soft();
-                flow.toggle();
-              }}
-              style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}>
-              <Icon name="lamp" size={18} color={flow.active ? '#8A7F72' : '#B07A2E'} />
-            </Pressable>
-            <View style={styles.knob} aria-hidden>
+            <Grille slots={9} />
+            <View style={styles.ledWrap} accessible accessibilityLabel={flow.active ? 'Sleep session running' : 'No sleep session running'}>
               <View style={[styles.led, flow.active && styles.ledOn]} />
+              <T style={styles.ledText}>{flow.active ? 'SLEEP' : 'STBY'}</T>
             </View>
           </View>
 
@@ -152,14 +138,8 @@ export function BabyMonitor({ flow, onClosed }: { flow: ReturnType<typeof useSes
           {/* Hinged dashboard screen */}
           <Animated.View style={[styles.panel, panel]}>
             <View style={styles.panelScreen}>
-              <SleepDashboard
-                sessions={flow.sleep.items}
-                active={flow.active}
-                busy={flow.busy}
-                error={flow.error}
-                onToggleLamp={flow.toggle}
-                loading={flow.sleep.status !== 'ready'}
-              />
+              <SleepDashboard sessions={flow.sleep.items} active={flow.active} error={flow.error} loading={flow.sleep.status !== 'ready'} />
+              <Scanlines opacity={0.12} />
             </View>
           </Animated.View>
         </Animated.View>
@@ -170,12 +150,12 @@ export function BabyMonitor({ flow, onClosed }: { flow: ReturnType<typeof useSes
 
 const styles = StyleSheet.create({
   backdrop: { backgroundColor: 'rgba(14,9,5,0.62)' },
-  device: { backgroundColor: BEZEL, borderRadius: 30, padding: 12, paddingTop: 10, borderWidth: 1, borderColor: BEZEL_EDGE },
+  device: { backgroundColor: BEZEL, borderRadius: 28, padding: 10, paddingTop: 8, borderWidth: 1, borderColor: BEZEL_EDGE, borderTopColor: '#F6F0E4' },
   hinge: { position: 'absolute', left: -6, top: 70, width: 10, height: 120, borderRadius: 5, backgroundColor: BEZEL_EDGE },
   deviceHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingBottom: 8 },
-  brand: { fontFamily: fonts.bodyMedium, fontSize: 11, letterSpacing: 1.2, color: '#9A8F80' },
+  brand: { fontFamily: fonts.lcd, fontSize: 12, letterSpacing: 2, color: '#8F8371', textTransform: 'uppercase' },
   close: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: BEZEL_EDGE },
-  screen: { aspectRatio: 4 / 3, borderRadius: 18, overflow: 'hidden', backgroundColor: '#111', borderWidth: 3, borderColor: '#1A1816' },
+  screen: { aspectRatio: 16 / 10, borderRadius: 12, overflow: 'hidden', backgroundColor: '#111', borderWidth: 3, borderColor: '#1A1816' },
   osdTop: { position: 'absolute', top: 10, left: 12, right: 12, flexDirection: 'row', justifyContent: 'space-between' },
   live: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#7BD389' },
@@ -192,25 +172,12 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: 'rgba(243,236,224,0.7)',
   },
-  keys: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 6, paddingHorizontal: 6 },
-  grille: { width: 78, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  hole: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#CFC5B5' },
-  key: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#F7F2E9',
-    borderWidth: 1,
-    borderColor: BEZEL_EDGE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 'auto',
-  },
-  keyPressed: { backgroundColor: BEZEL_EDGE },
-  knob: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F7F2E9', borderWidth: 1, borderColor: BEZEL_EDGE, alignItems: 'center', paddingTop: 6 },
-  led: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#CFC5B5' },
-  ledOn: { backgroundColor: '#7BD389' },
-  sessionsTab: { position: 'absolute', right: -6, top: 252 },
+  keys: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, paddingHorizontal: 8 },
+  ledWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ledText: { fontFamily: fonts.lcd, fontSize: 11, letterSpacing: 1.5, color: '#8F8371' },
+  led: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#BFB19A' },
+  ledOn: { backgroundColor: '#F2C98A', shadowColor: '#F2C98A', shadowOpacity: 0.9, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
+  sessionsTab: { position: 'absolute', right: -6, top: 184 },
   sessionsInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,6 +193,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(242,201,138,0.35)',
   },
   sessionsText: { fontFamily: fonts.bodySemibold, fontSize: 12.5, color: screen.amber },
-  panel: { marginTop: 10, transformOrigin: 'top' },
-  panelScreen: { backgroundColor: screen.bg, borderRadius: 20, padding: 10, borderWidth: 3, borderColor: '#151310' },
+  panel: { marginTop: 8, transformOrigin: 'top' },
+  panelScreen: { backgroundColor: screen.bg, borderRadius: 14, padding: 8, borderWidth: 4, borderColor: '#14110E', overflow: 'hidden' },
 });

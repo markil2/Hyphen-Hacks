@@ -29,7 +29,14 @@ export const stores = {
   feedings: createCollection(remote.feedings, newestBy((f) => f.at), afterCare),
   diapers: createCollection(remote.diapers, newestBy((d) => d.at), afterCare),
   heights: createCollection(remote.heights, newestBy((h) => h.measuredAt), afterCare),
+  weights: createCollection(remote.weights, newestBy((w) => w.measuredAt), afterCare),
   milestones: createCollection(remote.milestones, newestBy((m) => m.achievedAt), afterCare),
+  babyHealth: createCollection(remote.babyHealth, newestBy((h) => h.at), afterCare),
+  momHealth: createCollection(remote.momHealth, newestBy((h) => h.at)),
+  hormones: createCollection(remote.hormones, newestBy((h) => h.at)),
+  notes: createCollection(remote.notes, newestBy((n) => n.createdAt)),
+  babySummary: createDoc(readOnly(remote.ai.babySummary)),
+  stats: createDoc(readOnly(() => remote.stats.get(14))),
   questions: createCatalog(remote.questions),
   consultations: createCatalog(remote.consultations),
   experts: createCatalog(remote.experts),
@@ -42,10 +49,13 @@ export const stores = {
   pediatricianNotes: createCollection(local.pediatricianNotes, newestBy((n) => n.createdAt)),
   activityProgress: createCollection(local.activityProgress, newestBy((p) => p.triedAt)),
   activities: createCatalog(local.activities),
+  bag: createCollection(local.bag, newestBy((b) => b.addedAt)),
 };
 
 /** After a care log changes, the home summary and timeline are stale. */
 export function refreshSummaries() {
+  stores.babySummary.load(true);
+  stores.stats.load(true);
   stores.dashboard.load(true);
   stores.timeline.load(true);
 }

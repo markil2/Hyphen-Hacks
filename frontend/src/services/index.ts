@@ -1,4 +1,4 @@
-import type { ActivityProgress, PediatricianNote, Preferences, SavedItem } from '@/types';
+import type { ActivityProgress, BagItem, PediatricianNote, Preferences, SavedItem } from '@/types';
 
 import { API_URL } from './api/client';
 import { remoteServices } from './api/nurture';
@@ -23,6 +23,7 @@ export const local = {
   saved: localRepo<SavedItem>('saved', seed.seedSaved),
   pediatricianNotes: localRepo<PediatricianNote>('pedi-notes', seed.seedPediNotes),
   activityProgress: localRepo<ActivityProgress>('activity-progress', () => []),
+  bag: localRepo<BagItem>('shopping-bag', () => []),
   activities: localCatalog(seed.seedActivities),
 };
 

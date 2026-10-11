@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { Icon } from '@/components/icons';
+import { FoodSearch } from '@/features/feeding/FoodSearch';
 import { Button, Chip, goBack, ListRow, Panel, Screen, Section, T, TextField, TimeEditor } from '@/components/ui';
 import { useFeedings } from '@/features/feeding/model';
 import { dayLabel } from '@/lib/time';
@@ -96,6 +97,7 @@ function Form({ existing }: { existing?: Solid }) {
             ))}
           </View>
         ) : null}
+        {!existing ? <FoodSearch onPick={setFood} /> : null}
       </View>
       <TimeEditor label="Time" value={at} onChange={setAt} />
       <TextField label="How did it go? (optional)" placeholder="Curious, messy, not interested today…" value={notes} onChangeText={setNotes} multiline />

@@ -2,11 +2,11 @@ import { Platform, TextStyle, ViewStyle } from 'react-native';
 
 /** Nurture palette. Cream dominates; sage, dusty blue and wood are used sparingly. */
 export const colors = {
-  cream: '#D8C6AC',
-  creamDeep: '#CDB89B',
-  creamSoft: '#E4D6C2',
-  warmWhite: '#F5F0E7',
-  paper: '#FBF8F2',
+  cream: '#D1BEA2',
+  creamDeep: '#C5AF90',
+  creamSoft: '#DDCEB8',
+  warmWhite: '#F0E9DD',
+  paper: '#F8F3EA',
   charcoal: '#352F29',
   ink2: '#4F453B',
   ink3: '#6B5E50',
@@ -39,6 +39,8 @@ export const fonts = {
   body: 'NunitoSans_400Regular',
   bodyMedium: 'NunitoSans_600SemiBold',
   bodySemibold: 'NunitoSans_700Bold',
+  /** LCD readouts on the monitor and the room consoles. */
+  lcd: 'ShareTechMono_400Regular',
 } as const;
 
 export const space = { xxs: 4, xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 48 } as const;

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -29,6 +30,7 @@ export function InteractiveObject({
   tagShift = 0,
   onPress,
   disabled,
+  alert = false,
 }: {
   area: Rect;
   /** Spoken name, e.g. "Crib". */
@@ -42,24 +44,38 @@ export function InteractiveObject({
   tagShift?: number;
   onPress: () => void;
   disabled?: boolean;
+  /** Something needs a look: the tag glows amber and its dot pulses steadily. */
+  alert?: boolean;
 }) {
   const { s } = useStage();
   const calm = useCalmMotion();
-  const [pressed, setPressed] = useState(false);
   const pulse = useSharedValue(0);
+  // 0 → 1 while a finger rests on the object (or a pointer hovers on web).
+  const hover = useSharedValue(0);
+  const setHover = (on: boolean) => hover.set(withTiming(on ? 1 : 0, { duration: on ? 140 : 260, easing: easeOut }));
 
   useEffect(() => {
     if (calm) return;
-    // A slow, occasional breath on the tag dot — a hint, not a nag.
-    pulse.value = withDelay(
-      400 + Math.random() * 900,
-      withRepeat(withSequence(withTiming(1, { duration: 1100, easing: easeOut }), withTiming(0, { duration: 1500 }), withTiming(0, { duration: 2600 })), -1),
-    );
-  }, [calm, pulse]);
+    // A slow, occasional breath on the tag dot — a hint, not a nag. An alert breathes steadily.
+    pulse.value = alert
+      ? withRepeat(withSequence(withTiming(1, { duration: 800, easing: easeOut }), withTiming(0, { duration: 800 })), -1)
+      : withDelay(
+          400 + Math.random() * 900,
+          withRepeat(withSequence(withTiming(1, { duration: 1100, easing: easeOut }), withTiming(0, { duration: 1500 }), withTiming(0, { duration: 2600 })), -1),
+        );
+  }, [calm, pulse, alert]);
 
   const dotStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + pulse.value * 0.9 }],
     opacity: 0.55 - pulse.value * 0.45,
+  }));
+
+  // A warm pool of light gathers on the object; no outline, no hitbox shape.
+  const glowStyle = useAnimatedStyle(() => ({ opacity: hover.value, transform: [{ scale: 0.92 + hover.value * 0.08 }] }));
+  // The tag rises a touch and settles, like something you're about to pick up.
+  const tagStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: hover.value * -2.5 }, { scale: 1 + hover.value * 0.06 }],
+    backgroundColor: `rgba(36,27,21,${0.26 + hover.value * 0.3})`,
   }));
 
   const text = tag === undefined ? label : tag;
@@ -72,14 +88,28 @@ export function InteractiveObject({
         accessibilityLabel={label}
         accessibilityHint={hint}
         disabled={disabled}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
+        onPressIn={() => setHover(true)}
+        onPressOut={() => setHover(false)}
+        onHoverIn={() => setHover(true)}
+        onHoverOut={() => setHover(false)}
         onPress={() => {
           haptic.soft();
           onPress();
         }}
-        style={[StyleSheet.absoluteFill, styles.hit, pressed && styles.hitPressed]}
+        style={StyleSheet.absoluteFill}
       />
+      <Animated.View pointerEvents="none" style={[styles.glow, glowStyle]}>
+        <Svg width="100%" height="100%">
+          <Defs>
+            <RadialGradient id="hover-glow" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#FFE9C4" stopOpacity={0.3} />
+              <Stop offset="0.55" stopColor="#FFE9C4" stopOpacity={0.12} />
+              <Stop offset="1" stopColor="#FFE9C4" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="url(#hover-glow)" />
+        </Svg>
+      </Animated.View>
       {text ? (
         <View
           pointerEvents="none"
@@ -90,7 +120,7 @@ export function InteractiveObject({
             tagAt === 'above' && { bottom: '100%', marginBottom: 6 },
             tagAt === 'inside' && { top: '50%', marginTop: -11 },
           ]}>
-          <View style={[styles.tag, pressed && styles.tagPressed]}>
+          <Animated.View style={[styles.tag, alert && styles.tagAlert, tagStyle]}>
             <View style={styles.dotWrap}>
               <Animated.View style={[styles.dotRing, dotStyle]} />
               <View style={styles.dot} />
@@ -98,7 +128,7 @@ export function InteractiveObject({
             <T style={styles.tagText} numberOfLines={1}>
               {text}
             </T>
-          </View>
+          </Animated.View>
         </View>
       ) : null}
     </View>
@@ -107,8 +137,7 @@ export function InteractiveObject({
 
 const styles = StyleSheet.create({
   abs: { position: 'absolute' },
-  hit: { borderRadius: radius.lg },
-  hitPressed: { backgroundColor: 'rgba(255,240,214,0.16)', borderWidth: 1.5, borderColor: 'rgba(255,240,214,0.6)' },
+  glow: { position: 'absolute', left: '-18%', right: '-18%', top: '-18%', bottom: '-18%' },
   tagWrap: { position: 'absolute', left: -40, right: -40, alignItems: 'center' },
   // Smoked glass: legible on the light wall and the dark carpet, without shouting.
   tag: {
@@ -123,7 +152,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,248,236,0.32)',
   },
-  tagPressed: { backgroundColor: 'rgba(36,27,21,0.55)' },
+  tagAlert: { borderColor: 'rgba(242,201,138,0.9)', borderWidth: 1 },
   tagText: {
     fontFamily: fonts.bodySemibold,
     fontSize: 11.5,

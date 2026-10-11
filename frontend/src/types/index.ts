@@ -221,3 +221,136 @@ export interface DashboardSummary {
   diapersToday: number;
   latestHeight: HeightMeasurement | null;
 }
+
+/* ── Health log (the kitchen fridge) ───────────────────────── */
+
+export type BabyHealthType = 'temperature' | 'symptom' | 'medication' | 'appointment' | 'general';
+export type Severity = 'mild' | 'moderate' | 'severe';
+
+/** Something a parent noted about the baby's health. Never assessed by the app. */
+export interface BabyHealthEntry extends BaseRecord {
+  type: BabyHealthType;
+  at: ISODate;
+  value?: number;
+  unit?: string;
+  severity?: Severity;
+  notes?: string;
+}
+
+export type MomMeasureType = 'weight' | 'blood_pressure' | 'blood_glucose';
+
+/** A measurement the parent took of themself, stored exactly as entered. */
+export interface MomMeasurement extends BaseRecord {
+  type: MomMeasureType;
+  at: ISODate;
+  value?: number;
+  unit?: 'kg' | 'lb' | 'mg/dL' | 'mmol/L';
+  systolic?: number;
+  diastolic?: number;
+  notes?: string;
+}
+
+export type HormoneType = 'lh' | 'hcg' | 'estrogen' | 'progesterone' | 'fsh' | 'other';
+export type HormoneSource = 'lab' | 'home_test' | 'manual_entry' | 'other';
+
+/** A hormone result the parent entered, kept exactly as typed. Never interpreted. */
+export interface HormoneEntry extends BaseRecord {
+  hormone: HormoneType;
+  value: number;
+  unit: string;
+  source: HormoneSource;
+  at: ISODate;
+  notes?: string;
+}
+
+export type NoteColor = 'cream' | 'sage' | 'blue' | 'terracotta';
+
+/** A note on the family fridge. */
+export interface FamilyNote extends BaseRecord {
+  body: string;
+  color: NoteColor;
+  authorName: string;
+  mine: boolean;
+  createdAt: ISODate;
+}
+
+export interface RecipeIdea {
+  title: string;
+  why: string;
+  minutes: number;
+  ingredients: string[];
+  steps: string[];
+}
+
+export interface RecipeIdeas {
+  ideas: RecipeIdea[];
+  source: 'ai' | 'library';
+  notice: string;
+  basedOn: { stage: string; breastfeeding: boolean; hormonesLogged: string[] };
+}
+
+export interface BabySummary {
+  summary: string;
+  source: 'ai' | 'logs';
+}
+
+export interface DayStats {
+  date: ISODate;
+  sleepMinutes: number;
+  sleeps: number;
+  feeds: number;
+  solids: number;
+  diapers: number;
+  dirty: number;
+}
+
+export interface WindowStats {
+  sleepMinutes: number;
+  feeds: number;
+  diapers: number;
+}
+
+export interface BabyStats {
+  daily: DayStats[];
+  last24h: WindowStats;
+  previous24h: WindowStats;
+  heights: { height: number; unit: 'cm' | 'in'; measuredAt: ISODate }[];
+  weights: { weight: number; unit: 'kg' | 'lb'; measuredAt: ISODate }[];
+}
+
+export interface WeightMeasurement extends BaseRecord {
+  weight: number;
+  unit: 'kg' | 'lb';
+  measuredAt: ISODate;
+  notes?: string;
+}
+
+/** A packaged food found through Open Food Facts. */
+export interface FoodHit {
+  code: string | null;
+  name: string;
+  brand: string | null;
+  imageUrl: string | null;
+  allergens: string[];
+  babyFood: boolean;
+  url: string | null;
+}
+
+export interface ShopProduct {
+  id: string;
+  brand: string;
+  name: string;
+  category: string;
+  ageFromMonths: number;
+  description: string;
+  storeUrl: string;
+}
+
+/** Something put in the kitchen shopping bag (kept on this device). */
+export interface BagItem extends BaseRecord {
+  productId: string;
+  brand: string;
+  name: string;
+  storeUrl: string;
+  addedAt: ISODate;
+}
